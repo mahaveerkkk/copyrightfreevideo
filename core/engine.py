@@ -115,11 +115,12 @@ class VideoTransformer:
         else:
             cmd.extend(["-vf", video_filters, "-map", "0:v:0"])
             
-        # Video encoding parameters
+        # Video encoding parameters — ultrafast for Railway 2 vCPU, CRF 23 is visually transparent
         cmd.extend([
             "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-crf", "20",
+            "-preset", "ultrafast",
+            "-tune", "fastdecode",
+            "-crf", "23",
             "-pix_fmt", "yuv420p"
         ])
         

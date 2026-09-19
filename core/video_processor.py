@@ -59,8 +59,9 @@ def build_video_filter_graph(video_config: dict, is_vertical_source: bool = Fals
     if sharpen:
         filters.append("unsharp=3:3:0.6")
     
-    # 8. FPS Standardization
-    filters.append(f"fps={fps_target}")
+    # 8. FPS Standardization (skip if 0 to avoid unnecessary re-mux)
+    if fps_target > 0:
+        filters.append(f"fps={fps_target}")
     
     # 9. Clean standard pixel format
     filters.append("format=yuv420p")

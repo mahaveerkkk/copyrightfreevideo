@@ -151,12 +151,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateButtonLabel();
     }
 
-    // 4. Chunked Upload Implementation
-    const CHUNK_SIZE = 1.5 * 1024 * 1024; // 1.5 MB slices (robust against mobile drops)
+    // 4. Chunked Upload Implementation — 8MB slices + 3 parallel uploads
+    const CHUNK_SIZE = 8 * 1024 * 1024; // 8 MB (Railway handles 10MB+ fine)
+    const PARALLEL_UPLOADS = 3;         // send 3 chunks concurrently
 
     async function uploadInChunks(file) {
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-        logTerminal(`[INIT] File Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB (${totalChunks} chunks)`);
+        logTerminal(`[INIT] File Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB (${totalChunks} chunks × 8MB, ${PARALLEL_UPLOADS} parallel)`);
 
         // Step 1: Init upload
         mainStatusText.innerText = "Initializing secure chunked upload...";
@@ -180,36 +181,46 @@ document.addEventListener("DOMContentLoaded", async () => {
         const initData = await initRes.json();
         const uploadId = initData.upload_id;
 
-        // Step 2: Upload Chunks Sequentially
+        // Step 2: Upload Chunks in Parallel Batches of 3
         let uploadedBytes = 0;
-        for (let i = 0; i < totalChunks; i++) {
-            const start = i * CHUNK_SIZE;
-            const end = Math.min(file.size, start + CHUNK_SIZE);
-            const chunkBlob = file.slice(start, end);
+        const uploadStartTime = Date.now();
 
-            const chunkForm = new FormData();
-            chunkForm.append("upload_id", uploadId);
-            chunkForm.append("chunk_index", i);
-            chunkForm.append("chunk", chunkBlob, `part_${i}.bin`);
+        for (let batch = 0; batch < totalChunks; batch += PARALLEL_UPLOADS) {
+            const batchEnd = Math.min(batch + PARALLEL_UPLOADS, totalChunks);
+            const promises = [];
 
-            const chunkRes = await fetch("/api/upload/chunk", {
-                method: "POST",
-                body: chunkForm
-            });
+            for (let i = batch; i < batchEnd; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(file.size, start + CHUNK_SIZE);
+                const chunkBlob = file.slice(start, end);
 
-            if (!chunkRes.ok) {
-                throw new Error(`Chunk ${i + 1}/${totalChunks} transfer failed`);
+                const chunkForm = new FormData();
+                chunkForm.append("upload_id", uploadId);
+                chunkForm.append("chunk_index", i);
+                chunkForm.append("chunk", chunkBlob, `part_${i}.bin`);
+
+                promises.push(
+                    fetch("/api/upload/chunk", { method: "POST", body: chunkForm })
+                        .then(res => {
+                            if (!res.ok) throw new Error(`Chunk ${i + 1}/${totalChunks} failed`);
+                            return end - start;
+                        })
+                );
             }
 
-            uploadedBytes += (end - start);
+            const results = await Promise.all(promises);
+            results.forEach(bytes => { uploadedBytes += bytes; });
+
             const pct = Math.round((uploadedBytes / file.size) * 100);
             const uploadedMb = (uploadedBytes / (1024 * 1024)).toFixed(1);
             const totalMb = (file.size / (1024 * 1024)).toFixed(1);
+            const elapsed = (Date.now() - uploadStartTime) / 1000;
+            const speed = elapsed > 0 ? (uploadedBytes / (1024 * 1024) / elapsed).toFixed(1) : "—";
 
             progressBar.style.width = `${pct}%`;
             progressPercentLabel.innerText = `${pct}%`;
             mainStatusText.innerText = "Uploading to Cloud Engine...";
-            subStatusText.innerText = `${uploadedMb} MB / ${totalMb} MB (${pct}%) • Chunk ${i + 1}/${totalChunks}`;
+            subStatusText.innerText = `${uploadedMb} / ${totalMb} MB (${pct}%) • ${speed} MB/s • Chunk ${batchEnd}/${totalChunks}`;
         }
 
         logTerminal(`[SUCCESS] All ${totalChunks} chunks uploaded! Assembling video...`);
