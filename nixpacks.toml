@@ -5,4 +5,4 @@ nixPkgs = ["ffmpeg", "python311"]
 cmds = ["python -m pip install --upgrade pip", "pip install -r requirements.txt", "python assets/generate_assets.py"]
 
 [start]
-cmd = "uvicorn api.main:app --host 0.0.0.0 --port $PORT"
+cmd = "sh -c \"uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}\""

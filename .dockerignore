@@ -1,0 +1,7 @@
+venv/
+.git/
+__pycache__/
+*.pyc
+storage/inputs/*
+storage/outputs/*
+storage/temp/*
