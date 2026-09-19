@@ -1,231 +1,119 @@
 document.addEventListener("DOMContentLoaded", async () => {
-    const fileInput = document.getElementById("fileInput");
+    // Elements
     const dropZone = document.getElementById("dropZone");
-    const fileChip = document.getElementById("fileChip");
-    const fileName = document.getElementById("fileName");
-    const fileSize = document.getElementById("fileSize");
-    const presetGrid = document.getElementById("presetGrid");
-    const processBtn = document.getElementById("processBtn");
-    const btnActionText = document.getElementById("btnActionText");
+    const fileInput = document.getElementById("fileInput");
+    const dropPrompt = document.getElementById("dropPrompt");
+    const selectedPreview = document.getElementById("selectedPreview");
+    const sourceVideoPlayer = document.getElementById("sourceVideoPlayer");
+    const fileNameLabel = document.getElementById("fileNameLabel");
+    const fileSizeLabel = document.getElementById("fileSizeLabel");
+    const changeFileBtn = document.getElementById("changeFileBtn");
 
-    const idleState = document.getElementById("idleState");
-    const processingState = document.getElementById("processingState");
-    const completedState = document.getElementById("completedState");
+    const modeTurboCard = document.getElementById("modeTurboCard");
+    const modeDeepCard = document.getElementById("modeDeepCard");
+    const aiConfigPanel = document.getElementById("aiConfigPanel");
+    const vocalSwapToggle = document.getElementById("vocalSwapToggle");
+    const splitScreenToggle = document.getElementById("splitScreenToggle");
+    const bgmChoice = document.getElementById("bgmChoice");
 
-    const progressBarFill = document.getElementById("progressBarFill");
-    const progressPct = document.getElementById("progressPct");
-    const stageMessage = document.getElementById("stageMessage");
-    const terminalLog = document.getElementById("terminalLog");
+    const presetsContainer = document.getElementById("presetsContainer");
+    const startBtn = document.getElementById("startBtn");
+    const startBtnLabel = document.getElementById("startBtnLabel");
 
-    // Output Player elements
-    const previewPlayer = document.getElementById("previewPlayer");
+    const configCard = document.getElementById("configCard");
+    const progressCard = document.getElementById("progressCard");
+    const processingView = document.getElementById("processingView");
+    const completedView = document.getElementById("completedView");
+
+    const mainStatusText = document.getElementById("mainStatusText");
+    const subStatusText = document.getElementById("subStatusText");
+    const progressBar = document.getElementById("progressBar");
+    const progressPercentLabel = document.getElementById("progressPercentLabel");
+    const terminalOutput = document.getElementById("terminalOutput");
+
+    // Output Player Elements
+    const tabSinglePlayer = document.getElementById("tabSinglePlayer");
+    const tabDualPlayer = document.getElementById("tabDualPlayer");
     const singlePlayerBox = document.getElementById("singlePlayerBox");
-    const comparePlayerBox = document.getElementById("comparePlayerBox");
-    const originalPlayer = document.getElementById("originalPlayer");
-    const compareSafePlayer = document.getElementById("compareSafePlayer");
-    const viewSingleBtn = document.getElementById("viewSingleBtn");
-    const viewCompareBtn = document.getElementById("viewCompareBtn");
-
-    const spectrumBars = document.getElementById("spectrumBars");
-    const downloadBtn = document.getElementById("downloadBtn");
-    const resetBtn = document.getElementById("resetBtn");
-    const auditTimer = document.getElementById("auditTimer");
-    const acousticStatus = document.getElementById("acousticStatus");
-
-    // Mode Tabs & AI Box
-    const tabTurbo = document.getElementById("tabTurbo");
-    const tabDeep = document.getElementById("tabDeep");
-    const aiDeepBox = document.getElementById("aiDeepBox");
-    const vocalSwapCheck = document.getElementById("vocalSwapCheck");
-    const splitScreenCheck = document.getElementById("splitScreenCheck");
-    const bgmSelect = document.getElementById("bgmSelect");
-
-    // Customizer elements
-    const customizerToggle = document.getElementById("customizerToggle");
-    const customizerBody = document.getElementById("customizerBody");
-    const toggleArrow = document.getElementById("toggleArrow");
-
-    const zoomSlider = document.getElementById("zoomSlider");
-    const zoomVal = document.getElementById("zoomVal");
-    const tiltSlider = document.getElementById("tiltSlider");
-    const tiltVal = document.getElementById("tiltVal");
-    const grainSlider = document.getElementById("grainSlider");
-    const grainVal = document.getElementById("grainVal");
-    const vignetteCheck = document.getElementById("vignetteCheck");
-    const sharpenCheck = document.getElementById("sharpenCheck");
-
-    const pitchSlider = document.getElementById("pitchSlider");
-    const pitchVal = document.getElementById("pitchVal");
-    const tempoSlider = document.getElementById("tempoSlider");
-    const tempoVal = document.getElementById("tempoVal");
-    const widenCheck = document.getElementById("widenCheck");
-    const notchCheck = document.getElementById("notchCheck");
-    const securityBadge = document.getElementById("securityBadge");
+    const dualPlayerBox = document.getElementById("dualPlayerBox");
+    const finalVideoPlayer = document.getElementById("finalVideoPlayer");
+    const rawVideoPlayer = document.getElementById("rawVideoPlayer");
+    const dualCleanPlayer = document.getElementById("dualCleanPlayer");
+    const downloadSafeBtn = document.getElementById("downloadSafeBtn");
+    const restartBtn = document.getElementById("restartBtn");
 
     let selectedFile = null;
-    let selectedPresetId = "stealth_deep";
     let activeMode = "turbo";
-    let presetsCache = {};
+    let selectedPreset = "stealth_deep";
     let activeEventSource = null;
-    let spectrumInterval = null;
 
-    // Initialize 36 Spectrum Bars
-    spectrumBars.innerHTML = "";
-    for (let i = 0; i < 36; i++) {
-        const bar = document.createElement("div");
-        bar.className = "bar";
-        bar.style.height = `${Math.floor(Math.random() * 20 + 6)}px`;
-        spectrumBars.appendChild(bar);
-    }
-
-    function animateSpectrum(active) {
-        if (spectrumInterval) clearInterval(spectrumInterval);
-        if (!active) {
-            document.querySelectorAll(".spectrum-bars .bar").forEach(b => b.style.height = "6px");
-            return;
-        }
-        spectrumInterval = setInterval(() => {
-            document.querySelectorAll(".spectrum-bars .bar").forEach(b => {
-                b.style.height = `${Math.floor(Math.random() * 26 + 4)}px`;
-            });
-        }, 120);
-    }
-
-    // Single vs Compare Switcher
-    viewSingleBtn.addEventListener("click", () => {
-        viewSingleBtn.classList.add("active");
-        viewCompareBtn.classList.remove("active");
-        singlePlayerBox.style.display = "block";
-        comparePlayerBox.style.display = "none";
-        originalPlayer.pause();
-        compareSafePlayer.pause();
-    });
-
-    viewCompareBtn.addEventListener("click", () => {
-        viewCompareBtn.classList.add("active");
-        viewSingleBtn.classList.remove("active");
-        singlePlayerBox.style.display = "none";
-        comparePlayerBox.style.display = "grid";
-        previewPlayer.pause();
-    });
-
-    // Sync Playback for Dual Comparison
-    compareSafePlayer.addEventListener("play", () => {
-        originalPlayer.play().catch(() => {});
-        animateSpectrum(true);
-    });
-    compareSafePlayer.addEventListener("pause", () => {
-        originalPlayer.pause();
-        animateSpectrum(false);
-    });
-    compareSafePlayer.addEventListener("seeked", () => {
-        originalPlayer.currentTime = compareSafePlayer.currentTime;
-    });
-
-    previewPlayer.addEventListener("play", () => animateSpectrum(true));
-    previewPlayer.addEventListener("pause", () => animateSpectrum(false));
-
-    // Mode Tab Switching
-    tabTurbo.addEventListener("click", () => {
-        tabTurbo.classList.add("active");
-        tabDeep.classList.remove("active");
-        activeMode = "turbo";
-        aiDeepBox.style.display = "none";
-        btnActionText.innerText = "Initiate Turbo Transformation (5s)";
-        securityBadge.innerText = "98% SHIELDED";
-    });
-
-    tabDeep.addEventListener("click", () => {
-        tabDeep.classList.add("active");
-        tabTurbo.classList.remove("active");
-        activeMode = "ai_deep";
-        aiDeepBox.style.display = "block";
-        btnActionText.innerText = "Initiate AI Deep Studio Transformation";
-        securityBadge.innerText = "100% MAXIMUM IMMUNITY";
-    });
-
-    // Toggle Customizer Accordion
-    customizerToggle.addEventListener("click", () => {
-        const isHidden = customizerBody.style.display === "none";
-        customizerBody.style.display = isHidden ? "block" : "none";
-        toggleArrow.innerText = isHidden ? "▲" : "▼";
-    });
-
-    // Slider Listeners
-    zoomSlider.addEventListener("input", (e) => zoomVal.innerText = `${parseFloat(e.target.value).toFixed(3)}x`);
-    tiltSlider.addEventListener("input", (e) => tiltVal.innerText = `${parseFloat(e.target.value).toFixed(2)}°`);
-    grainSlider.addEventListener("input", (e) => grainVal.innerText = `${parseFloat(e.target.value).toFixed(1)}%`);
-    pitchSlider.addEventListener("input", (e) => {
-        const val = parseFloat(e.target.value);
-        pitchVal.innerText = `${val >= 0 ? '+' : ''}${val.toFixed(2)} st`;
-    });
-    tempoSlider.addEventListener("input", (e) => tempoVal.innerText = `${parseFloat(e.target.value).toFixed(3)}x`);
-
-    function syncCustomizerWithPreset(preset) {
-        if (!preset) return;
-        const v = preset.video || {};
-        const a = preset.audio || {};
-
-        zoomSlider.value = v.zoom || 1.045;
-        zoomVal.innerText = `${parseFloat(zoomSlider.value).toFixed(3)}x`;
-
-        tiltSlider.value = v.rotate_deg || 0.45;
-        tiltVal.innerText = `${parseFloat(tiltSlider.value).toFixed(2)}°`;
-
-        grainSlider.value = v.noise_grain || 2.2;
-        grainVal.innerText = `${parseFloat(grainSlider.value).toFixed(1)}%`;
-
-        vignetteCheck.checked = v.vignette !== false;
-        sharpenCheck.checked = v.sharpen !== false;
-
-        pitchSlider.value = a.pitch_semitones || 0.50;
-        pitchVal.innerText = `+${parseFloat(pitchSlider.value).toFixed(2)} st`;
-
-        tempoSlider.value = a.tempo || 1.030;
-        tempoVal.innerText = `${parseFloat(tempoSlider.value).toFixed(3)}x`;
-
-        widenCheck.checked = a.stereo_widen !== false;
-        notchCheck.checked = a.notch_filter !== false;
-    }
-
-    // 1. Fetch & Render Presets
+    // 1. Load Presets
     try {
         const res = await fetch("/api/presets");
         const presets = await res.json();
-        presetGrid.innerHTML = "";
+        presetsContainer.innerHTML = "";
 
         presets.forEach(p => {
-            presetsCache[p.id] = p;
             const card = document.createElement("div");
-            card.className = `preset-card ${p.id === selectedPresetId ? "active" : ""}`;
+            card.className = `preset-pill-card ${p.id === selectedPreset ? "active" : ""}`;
             card.dataset.id = p.id;
             card.innerHTML = `
-                <span class="preset-badge">${p.badge}</span>
-                <div class="preset-name">${p.name}</div>
-                <div class="preset-desc">${p.description}</div>
+                <div class="preset-pill-name">${p.name}</div>
+                <div class="preset-pill-desc">${p.description}</div>
             `;
             card.addEventListener("click", () => {
-                document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("active"));
+                document.querySelectorAll(".preset-pill-card").forEach(c => c.classList.remove("active"));
                 card.classList.add("active");
-                selectedPresetId = p.id;
-                syncCustomizerWithPreset(p);
+                selectedPreset = p.id;
             });
-            presetGrid.appendChild(card);
+            presetsContainer.appendChild(card);
         });
-
-        if (presetsCache[selectedPresetId]) {
-            syncCustomizerWithPreset(presetsCache[selectedPresetId]);
-        }
     } catch (err) {
         console.error("Failed to load presets", err);
     }
 
-    // 2. Drop Zone & File Selection
-    dropZone.addEventListener("click", () => fileInput.click());
+    // 2. Mode Toggle
+    modeTurboCard.addEventListener("click", () => {
+        modeTurboCard.classList.add("active");
+        modeDeepCard.classList.remove("active");
+        activeMode = "turbo";
+        aiConfigPanel.style.display = "none";
+        updateButtonLabel();
+    });
+
+    modeDeepCard.addEventListener("click", () => {
+        modeDeepCard.classList.add("active");
+        modeTurboCard.classList.remove("active");
+        activeMode = "ai_deep";
+        aiConfigPanel.style.display = "block";
+        updateButtonLabel();
+    });
+
+    function updateButtonLabel() {
+        if (!selectedFile) {
+            startBtnLabel.innerText = "Select a Video to Begin";
+            startBtn.disabled = true;
+        } else {
+            startBtnLabel.innerText = activeMode === "turbo" ? "⚡ Remove Copyright (Turbo 5s)" : "🧠 Run AI Deep Studio Transformation";
+            startBtn.disabled = false;
+        }
+    }
+
+    // 3. File Selection & Drag Drop
+    dropZone.addEventListener("click", (e) => {
+        if (e.target !== changeFileBtn) {
+            fileInput.click();
+        }
+    });
+
+    changeFileBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        fileInput.click();
+    });
 
     fileInput.addEventListener("change", (e) => {
         if (e.target.files.length > 0) {
-            handleFile(e.target.files[0]);
+            handleSelectedFile(e.target.files[0]);
         }
     });
 
@@ -245,185 +133,266 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     dropZone.addEventListener("drop", (e) => {
         if (e.dataTransfer.files.length > 0) {
-            handleFile(e.dataTransfer.files[0]);
+            handleSelectedFile(e.dataTransfer.files[0]);
         }
     });
 
-    function handleFile(file) {
+    function handleSelectedFile(file) {
         selectedFile = file;
-        fileName.innerText = file.name;
-        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-        fileSize.innerText = `${sizeMb} MB`;
-        fileChip.style.display = "inline-flex";
-        processBtn.disabled = false;
+        fileNameLabel.innerText = file.name;
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+        fileSizeLabel.innerText = `${sizeMb} MB`;
+
+        // Show Video Preview
+        sourceVideoPlayer.src = URL.createObjectURL(file);
+        dropPrompt.style.display = "none";
+        selectedPreview.style.display = "flex";
+
+        updateButtonLabel();
     }
 
-    // 3. Start Transformation Process
-    processBtn.addEventListener("click", async () => {
-        if (!selectedFile) return;
+    // 4. Chunked Upload Implementation
+    const CHUNK_SIZE = 1.5 * 1024 * 1024; // 1.5 MB slices (robust against mobile drops)
 
-        processBtn.disabled = true;
-        idleState.style.display = "none";
-        completedState.style.display = "none";
-        processingState.style.display = "flex";
+    async function uploadInChunks(file) {
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        logTerminal(`[INIT] File Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB (${totalChunks} chunks)`);
 
-        progressBarFill.style.width = "5%";
-        progressPct.innerText = "5%";
-        stageMessage.innerText = `Uploading source video for ${activeMode === "turbo" ? 'Turbo DSP' : 'AI Deep Studio'}...`;
-        terminalLog.innerHTML = `<div class="log-line">[UPLOAD] Sending ${selectedFile.name} (Mode: ${activeMode})...</div>`;
+        // Step 1: Init upload
+        mainStatusText.innerText = "Initializing secure chunked upload...";
+        subStatusText.innerText = "Connecting to Railway buffer...";
 
+        const initForm = new FormData();
+        initForm.append("filename", file.name);
+        initForm.append("total_chunks", totalChunks);
+        initForm.append("file_size", file.size);
+
+        const initRes = await fetch("/api/upload/init", {
+            method: "POST",
+            body: initForm
+        });
+
+        if (!initRes.ok) {
+            const err = await initRes.json();
+            throw new Error(err.detail || "Failed to initialize upload");
+        }
+
+        const initData = await initRes.json();
+        const uploadId = initData.upload_id;
+
+        // Step 2: Upload Chunks Sequentially
+        let uploadedBytes = 0;
+        for (let i = 0; i < totalChunks; i++) {
+            const start = i * CHUNK_SIZE;
+            const end = Math.min(file.size, start + CHUNK_SIZE);
+            const chunkBlob = file.slice(start, end);
+
+            const chunkForm = new FormData();
+            chunkForm.append("upload_id", uploadId);
+            chunkForm.append("chunk_index", i);
+            chunkForm.append("chunk", chunkBlob, `part_${i}.bin`);
+
+            const chunkRes = await fetch("/api/upload/chunk", {
+                method: "POST",
+                body: chunkForm
+            });
+
+            if (!chunkRes.ok) {
+                throw new Error(`Chunk ${i + 1}/${totalChunks} transfer failed`);
+            }
+
+            uploadedBytes += (end - start);
+            const pct = Math.round((uploadedBytes / file.size) * 100);
+            const uploadedMb = (uploadedBytes / (1024 * 1024)).toFixed(1);
+            const totalMb = (file.size / (1024 * 1024)).toFixed(1);
+
+            progressBar.style.width = `${pct}%`;
+            progressPercentLabel.innerText = `${pct}%`;
+            mainStatusText.innerText = "Uploading to Cloud Engine...";
+            subStatusText.innerText = `${uploadedMb} MB / ${totalMb} MB (${pct}%) • Chunk ${i + 1}/${totalChunks}`;
+        }
+
+        logTerminal(`[SUCCESS] All ${totalChunks} chunks uploaded! Assembling video...`);
+        mainStatusText.innerText = "Assembling video stream...";
+        subStatusText.innerText = "Validating binary integrity...";
+
+        // Step 3: Complete & Trigger Job
         const customSettings = {
-            video: {
-                zoom: parseFloat(zoomSlider.value),
-                rotate_deg: parseFloat(tiltSlider.value),
-                noise_grain: parseFloat(grainSlider.value),
-                vignette: vignetteCheck.checked,
-                sharpen: sharpenCheck.checked
-            },
-            audio: {
-                pitch_semitones: parseFloat(pitchSlider.value),
-                tempo: parseFloat(tempoSlider.value),
-                stereo_widen: widenCheck.checked,
-                notch_filter: notchCheck.checked
-            },
             ai_options: {
-                vocal_swap: vocalSwapCheck.checked,
-                split_screen: splitScreenCheck.checked,
-                bgm_type: bgmSelect.value
+                vocal_swap: vocalSwapToggle.checked,
+                split_screen: splitScreenToggle.checked,
+                bgm_type: bgmChoice.value
             }
         };
 
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-        formData.append("preset", selectedPresetId);
-        formData.append("mode", activeMode);
-        formData.append("custom_settings", JSON.stringify(customSettings));
+        const compForm = new FormData();
+        compForm.append("upload_id", uploadId);
+        compForm.append("filename", file.name);
+        compForm.append("preset", selectedPreset);
+        compForm.append("mode", activeMode);
+        compForm.append("custom_settings", JSON.stringify(customSettings));
+
+        const compRes = await fetch("/api/upload/complete", {
+            method: "POST",
+            body: compForm
+        });
+
+        if (!compRes.ok) {
+            const err = await compRes.json();
+            throw new Error(err.detail || "Assembly failed");
+        }
+
+        return await compRes.json();
+    }
+
+    // 5. Start Process Button
+    startBtn.addEventListener("click", async () => {
+        if (!selectedFile) return;
+
+        configCard.style.display = "none";
+        progressCard.style.display = "block";
+        processingView.style.display = "block";
+        completedView.style.display = "none";
+
+        progressBar.style.width = "0%";
+        progressPercentLabel.innerText = "0%";
+        terminalOutput.innerHTML = "";
 
         try {
-            const uploadRes = await fetch("/api/upload", {
-                method: "POST",
-                body: formData
-            });
+            const jobData = await uploadInChunks(selectedFile);
+            const jobId = jobData.job_id;
+            logTerminal(`[ENQUEUED] Job ID: ${jobId}`);
 
-            if (!uploadRes.ok) {
-                const err = await uploadRes.json();
-                throw new Error(err.detail || "Upload failed");
-            }
+            mainStatusText.innerText = "Running Anti-Copyright Engine...";
+            subStatusText.innerText = "Disrupting pHash & acoustic fingerprints...";
 
-            const data = await uploadRes.json();
-            const jobId = data.job_id;
-            addLog(`[JOB] Enqueued Task ID: ${jobId}`);
-
-            subscribeToJobStream(jobId);
+            // Subscribe to progress stream
+            subscribeJobStream(jobId);
 
         } catch (err) {
-            stageMessage.innerText = `Error: ${err.message}`;
-            addLog(`[ERR] ${err.message}`);
-            processBtn.disabled = false;
+            mainStatusText.innerText = "Upload / Process Error";
+            subStatusText.innerText = err.message;
+            logTerminal(`[ERR] ${err.message}`);
+            
+            setTimeout(() => {
+                alert(`Error: ${err.message}\n\nPlease try again.`);
+                configCard.style.display = "block";
+                progressCard.style.display = "none";
+            }, 1000);
         }
     });
 
-    function addLog(text) {
+    function logTerminal(msg) {
         const line = document.createElement("div");
-        line.className = "log-line";
-        line.innerText = text;
-        terminalLog.appendChild(line);
-        terminalLog.scrollTop = terminalLog.scrollHeight;
+        line.className = "terminal-line";
+        line.innerText = msg;
+        terminalOutput.appendChild(line);
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
     }
 
-    function subscribeToJobStream(jobId) {
-        if (activeEventSource) {
-            activeEventSource.close();
-        }
+    function subscribeJobStream(jobId) {
+        if (activeEventSource) activeEventSource.close();
 
         activeEventSource = new EventSource(`/api/jobs/${jobId}/stream`);
 
         activeEventSource.onmessage = (e) => {
             const data = JSON.parse(e.data);
             const pct = Math.round(data.progress);
-            progressBarFill.style.width = `${pct}%`;
-            progressPct.innerText = `${pct}%`;
-            stageMessage.innerText = data.message;
-            addLog(`[STAGE] ${data.message}`);
+            progressBar.style.width = `${pct}%`;
+            progressPercentLabel.innerText = `${pct}%`;
+            subStatusText.innerText = data.message;
+            logTerminal(`[STAGE] ${data.message}`);
 
             if (data.status === "completed") {
                 activeEventSource.close();
                 showCompleted(jobId, data);
             } else if (data.status === "failed") {
                 activeEventSource.close();
-                stageMessage.innerText = `Failed: ${data.message}`;
-                addLog(`[FAILED] Pipeline terminated with error.`);
-                processBtn.disabled = false;
+                mainStatusText.innerText = "Pipeline Terminated";
+                subStatusText.innerText = data.message;
             }
         };
 
         activeEventSource.onerror = () => {
             activeEventSource.close();
-            pollJob(jobId);
-        };
-    }
+            // Polling fallback
+            const poller = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/jobs/${jobId}`);
+                    const data = await res.json();
+                    progressBar.style.width = `${Math.round(data.progress)}%`;
+                    progressPercentLabel.innerText = `${Math.round(data.progress)}%`;
+                    subStatusText.innerText = data.message;
 
-    async function pollJob(jobId) {
-        const interval = setInterval(async () => {
-            try {
-                const res = await fetch(`/api/jobs/${jobId}`);
-                const data = await res.json();
-                progressBarFill.style.width = `${Math.round(data.progress)}%`;
-                progressPct.innerText = `${Math.round(data.progress)}%`;
-                stageMessage.innerText = data.message;
-
-                if (data.status === "completed") {
-                    clearInterval(interval);
-                    showCompleted(jobId, data);
-                } else if (data.status === "failed") {
-                    clearInterval(interval);
-                    processBtn.disabled = false;
+                    if (data.status === "completed") {
+                        clearInterval(poller);
+                        showCompleted(jobId, data);
+                    } else if (data.status === "failed") {
+                        clearInterval(poller);
+                        mainStatusText.innerText = "Failed";
+                    }
+                } catch {
+                    clearInterval(poller);
                 }
-            } catch (err) {
-                clearInterval(interval);
-            }
-        }, 1000);
+            }, 1200);
+        };
     }
 
     function showCompleted(jobId, data) {
         setTimeout(() => {
-            processingState.style.display = "none";
-            completedState.style.display = "flex";
+            processingView.style.display = "none";
+            completedView.style.display = "block";
 
-            const streamUrl = `/api/download/${jobId}`;
-            previewPlayer.src = streamUrl;
-            compareSafePlayer.src = streamUrl;
-            
+            const downloadUrl = `/api/download/${jobId}`;
+            finalVideoPlayer.src = downloadUrl;
+            dualCleanPlayer.src = downloadUrl;
+
             if (selectedFile) {
-                originalPlayer.src = URL.createObjectURL(selectedFile);
+                rawVideoPlayer.src = URL.createObjectURL(selectedFile);
             }
 
-            downloadBtn.href = streamUrl;
-            downloadBtn.setAttribute("download", `safe_${selectedFile ? selectedFile.name : 'video.mp4'}`);
-
-            acousticStatus.innerText = (activeMode === "turbo" ? "Phase Shifted" : "BGM Replaced");
-
-            if (data.elapsed) {
-                auditTimer.innerText = `${data.elapsed}s`;
-            }
-        }, 600);
+            downloadSafeBtn.href = downloadUrl;
+            downloadSafeBtn.setAttribute("download", `safe_${selectedFile ? selectedFile.name : 'video.mp4'}`);
+        }, 500);
     }
 
-    // 4. Reset
-    resetBtn.addEventListener("click", () => {
-        completedState.style.display = "none";
-        processingState.style.display = "none";
-        idleState.style.display = "flex";
+    // 6. Player Tab Switcher (Single vs Dual)
+    tabSinglePlayer.addEventListener("click", () => {
+        tabSinglePlayer.classList.add("active");
+        tabDualPlayer.classList.remove("active");
+        singlePlayerBox.style.display = "block";
+        dualPlayerBox.style.display = "none";
+        rawVideoPlayer.pause();
+        dualCleanPlayer.pause();
+    });
+
+    tabDualPlayer.addEventListener("click", () => {
+        tabDualPlayer.classList.add("active");
+        tabSinglePlayer.classList.remove("active");
+        singlePlayerBox.style.display = "none";
+        dualPlayerBox.style.display = "grid";
+        finalVideoPlayer.pause();
+    });
+
+    // Sync dual playback
+    dualCleanPlayer.addEventListener("play", () => rawVideoPlayer.play().catch(() => {}));
+    dualCleanPlayer.addEventListener("pause", () => rawVideoPlayer.pause());
+    dualCleanPlayer.addEventListener("seeked", () => {
+        rawVideoPlayer.currentTime = dualCleanPlayer.currentTime;
+    });
+
+    // 7. Restart
+    restartBtn.addEventListener("click", () => {
+        progressCard.style.display = "none";
+        configCard.style.display = "block";
         fileInput.value = "";
         selectedFile = null;
-        fileChip.style.display = "none";
-        processBtn.disabled = true;
-        previewPlayer.pause();
-        previewPlayer.src = "";
-        originalPlayer.pause();
-        originalPlayer.src = "";
-        compareSafePlayer.pause();
-        compareSafePlayer.src = "";
-        animateSpectrum(false);
+        dropPrompt.style.display = "block";
+        selectedPreview.style.display = "none";
+        sourceVideoPlayer.pause();
+        sourceVideoPlayer.src = "";
+        finalVideoPlayer.pause();
+        finalVideoPlayer.src = "";
+        updateButtonLabel();
     });
 });

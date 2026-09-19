@@ -2,22 +2,123 @@ import os
 import uuid
 import json
 import asyncio
+import shutil
 from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 import aiofiles
 
-from api.config import INPUT_DIR, OUTPUT_DIR, ALLOWED_EXTENSIONS
+from api.config import INPUT_DIR, OUTPUT_DIR, TEMP_DIR, ALLOWED_EXTENSIONS
 from api.models import JobResponse, JobStatus
 from core.presets import PRESETS
 from workers.manager import submit_job, JOBS_STORE
 
 router = APIRouter()
 
+CHUNKS_BASE_DIR = os.path.join(TEMP_DIR, "chunks")
+os.makedirs(CHUNKS_BASE_DIR, exist_ok=True)
+
 @router.get("/presets")
 async def get_presets():
     return list(PRESETS.values())
 
+# 1. Chunked Upload: Initialize
+@router.post("/upload/init")
+async def init_chunked_upload(
+    filename: str = Form(...),
+    total_chunks: int = Form(...),
+    file_size: int = Form(...)
+):
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported format {ext}. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+    upload_id = str(uuid.uuid4())
+    upload_dir = os.path.join(CHUNKS_BASE_DIR, upload_id)
+    os.makedirs(upload_dir, exist_ok=True)
+    return {
+        "upload_id": upload_id,
+        "filename": filename,
+        "total_chunks": total_chunks
+    }
+
+# 2. Chunked Upload: Receive 1-2MB slice
+@router.post("/upload/chunk")
+async def receive_chunk(
+    upload_id: str = Form(...),
+    chunk_index: int = Form(...),
+    chunk: UploadFile = File(...)
+):
+    upload_dir = os.path.join(CHUNKS_BASE_DIR, upload_id)
+    if not os.path.exists(upload_dir):
+        raise HTTPException(status_code=404, detail="Upload session expired or invalid")
+        
+    chunk_path = os.path.join(upload_dir, f"{chunk_index:06d}.part")
+    content = await chunk.read()
+    async with aiofiles.open(chunk_path, "wb") as f:
+        await f.write(content)
+        
+    return {"status": "ok", "chunk_index": chunk_index}
+
+# 3. Chunked Upload: Assemble and Start Processing
+@router.post("/upload/complete", response_model=JobResponse)
+async def complete_chunked_upload(
+    upload_id: str = Form(...),
+    filename: str = Form(...),
+    preset: str = Form("stealth_deep"),
+    mode: str = Form("turbo"),
+    custom_settings: Optional[str] = Form(None)
+):
+    upload_dir = os.path.join(CHUNKS_BASE_DIR, upload_id)
+    if not os.path.exists(upload_dir):
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
+    ext = os.path.splitext(filename)[1].lower()
+    job_id = upload_id
+    safe_name = f"{job_id}{ext}"
+    final_input_path = os.path.join(INPUT_DIR, safe_name)
+    final_output_path = os.path.join(OUTPUT_DIR, f"safe_{job_id}.mp4")
+
+    # Assemble all chunks in numerical order
+    chunk_files = sorted(os.listdir(upload_dir))
+    if not chunk_files:
+        raise HTTPException(status_code=400, detail="No chunks received")
+
+    with open(final_input_path, "wb") as out_f:
+        for cf in chunk_files:
+            part_path = os.path.join(upload_dir, cf)
+            with open(part_path, "rb") as in_f:
+                shutil.copyfileobj(in_f, out_f, length=1024*1024)
+
+    # Clean up chunks folder
+    shutil.rmtree(upload_dir, ignore_errors=True)
+
+    if preset not in PRESETS:
+        preset = "stealth_deep"
+    if mode not in ["turbo", "ai_deep"]:
+        mode = "turbo"
+
+    custom_overrides = None
+    if custom_settings:
+        try:
+            custom_overrides = json.loads(custom_settings)
+        except Exception:
+            custom_overrides = None
+
+    submit_job(job_id, final_input_path, final_output_path, preset, mode, custom_overrides)
+
+    return JobResponse(
+        job_id=job_id,
+        filename=filename,
+        status=JobStatus.QUEUED,
+        progress=0.0,
+        message="Video assembled successfully! Enqueued in transformation pipeline.",
+        preset=preset
+    )
+
+# 4. Standard Direct Upload (Fallback)
 @router.post("/upload", response_model=JobResponse)
 async def upload_video(
     file: UploadFile = File(...),
@@ -34,7 +135,6 @@ async def upload_video(
         
     if preset not in PRESETS:
         preset = "stealth_deep"
-        
     if mode not in ["turbo", "ai_deep"]:
         mode = "turbo"
         
@@ -50,12 +150,10 @@ async def upload_video(
     input_path = os.path.join(INPUT_DIR, safe_name)
     output_path = os.path.join(OUTPUT_DIR, f"safe_{job_id}.mp4")
     
-    # Stream large uploads in chunks
     async with aiofiles.open(input_path, "wb") as f:
-        while chunk := await file.read(1024 * 1024 * 4): # 4MB chunks
+        while chunk := await file.read(1024 * 1024 * 2): # 2MB chunks
             await f.write(chunk)
             
-    # Submit to worker queue
     submit_job(job_id, input_path, output_path, preset, mode, custom_overrides)
     
     return JobResponse(
@@ -111,7 +209,15 @@ async def stream_job_progress(job_id: str):
                 break
             await asyncio.sleep(0.5)
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 @router.api_route("/download/{job_id}", methods=["GET", "HEAD"])
 async def download_processed_video(job_id: str):
