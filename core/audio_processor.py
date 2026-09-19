@@ -21,6 +21,11 @@ def build_audio_filter_graph(audio_config: dict, sample_rate: int = 44100) -> st
     stereo_widen = audio_config.get("stereo_widen", True)
     dyn_norm = audio_config.get("dyn_norm", True)
     
+    # Micro-Speed Modulation: when disabled, tempo remains 1.0
+    speed_ramp = audio_config.get("speed_ramp", True)
+    if not speed_ramp:
+        target_tempo = 1.0
+
     # Calculate pitch frequency ratio: 2^(semitones / 12)
     pitch_ratio = math.pow(2.0, pitch_semitones / 12.0)
     adjusted_sample_rate = int(sample_rate * pitch_ratio)

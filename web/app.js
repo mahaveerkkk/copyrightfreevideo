@@ -151,13 +151,44 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateButtonLabel();
     }
 
-    // 4. Chunked Upload Implementation — 8MB slices + 3 parallel uploads
-    const CHUNK_SIZE = 8 * 1024 * 1024; // 8 MB (Railway handles 10MB+ fine)
-    const PARALLEL_UPLOADS = 3;         // send 3 chunks concurrently
+    // 2.5 One-Tap Defense Arsenal Interactive Toggles
+    const toolMirrorCard = document.getElementById("toolMirrorCard");
+    const toolBorderCard = document.getElementById("toolBorderCard");
+    const toolSpeedCard = document.getElementById("toolSpeedCard");
+    const toolAudioCard = document.getElementById("toolAudioCard");
+
+    const arsenalState = {
+        mirror_flip: true,
+        border_frame: true,
+        speed_ramp: true,
+        audio_pitch: true
+    };
+
+    function setupArsenalToggle(card, key) {
+        if (!card) return;
+        card.addEventListener("click", () => {
+            arsenalState[key] = !arsenalState[key];
+            card.classList.toggle("active", arsenalState[key]);
+            const statusEl = card.querySelector(".arsenal-status");
+            if (statusEl) {
+                statusEl.innerText = arsenalState[key] ? "ON" : "OFF";
+                statusEl.className = `arsenal-status ${arsenalState[key] ? "on" : "off"}`;
+            }
+        });
+    }
+
+    setupArsenalToggle(toolMirrorCard, "mirror_flip");
+    setupArsenalToggle(toolBorderCard, "border_frame");
+    setupArsenalToggle(toolSpeedCard, "speed_ramp");
+    setupArsenalToggle(toolAudioCard, "audio_pitch");
+
+    // 4. Chunked Upload Implementation — Mobile Golden Spot: 4MB slices + 2 parallel uploads
+    const CHUNK_SIZE = 4 * 1024 * 1024; // 4 MB (Super smooth on mobile networks)
+    const PARALLEL_UPLOADS = 2;         // 2 parallel streams (prevents mobile socket choke)
 
     async function uploadInChunks(file) {
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-        logTerminal(`[INIT] File Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB (${totalChunks} chunks × 8MB, ${PARALLEL_UPLOADS} parallel)`);
+        logTerminal(`[INIT] File Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB (${totalChunks} chunks × 4MB, mobile-optimized)`);
 
         // Step 1: Init upload
         mainStatusText.innerText = "Initializing secure chunked upload...";
@@ -181,7 +212,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const initData = await initRes.json();
         const uploadId = initData.upload_id;
 
-        // Step 2: Upload Chunks in Parallel Batches of 3
+        // Step 2: Upload Chunks in Parallel Batches of 2
         let uploadedBytes = 0;
         const uploadStartTime = Date.now();
 
@@ -229,6 +260,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // Step 3: Complete & Trigger Job
         const customSettings = {
+            video: {
+                mirror_flip: arsenalState.mirror_flip,
+                border_frame: arsenalState.border_frame
+            },
+            audio: {
+                speed_ramp: arsenalState.speed_ramp,
+                pitch_semitones: arsenalState.audio_pitch ? 0.5 : 0.0,
+                stereo_widen: arsenalState.audio_pitch
+            },
             ai_options: {
                 vocal_swap: vocalSwapToggle.checked,
                 split_screen: splitScreenToggle.checked,

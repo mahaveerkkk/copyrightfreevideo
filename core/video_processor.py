@@ -28,42 +28,54 @@ def build_video_filter_graph(video_config: dict, is_vertical_source: bool = Fals
     fps_target = float(video_config.get("fps_target", 29.97))
     
     filters = []
+
+    # 1. Horizontal Mirror Flip (Devastating against visual pHash & spatial object matching)
+    mirror_flip = video_config.get("mirror_flip", True)
+    if mirror_flip:
+        filters.append("hflip")
     
-    # 1. Micro-Rotation (Breaks rectangular coordinate matrix)
+    # 2. Micro-Rotation (Breaks rectangular coordinate matrix)
     if rotate_deg > 0.0:
         rad = rotate_deg * (math.pi / 180.0)
         filters.append(f"rotate={rad:.6f}:bilinear=1:fillcolor=black")
     
-    # 2. Dynamic Zoom & Center Crop with even pixel dimensions (trunc(x/2)*2)
+    # 3. Dynamic Zoom & Center Crop with even pixel dimensions (trunc(x/2)*2)
     if zoom > 1.0:
         filters.append(f"crop=w='2*trunc(iw/(2*{zoom:.4f}))':h='2*trunc(ih/(2*{zoom:.4f}))'")
         filters.append("scale=w='2*trunc(iw/2)':h='2*trunc(ih/2)'")
     
-    # 3. Multi-Channel Perceptual Noise / Film Grain (Alters pHash byte distances)
+    # 4. Multi-Channel Perceptual Noise / Film Grain (Alters pHash byte distances)
     if noise_grain > 0:
         luma_grain = int(noise_grain * 4)
         chroma_grain = max(1, int(luma_grain / 2))
         filters.append(f"noise=c0s={luma_grain}:c0f=t+u:c1s={chroma_grain}:c1f=t+u:c2s={chroma_grain}:c2f=t+u")
     
-    # 4. Color EQ curve shift (Modifies histogram peak distribution)
+    # 5. Color EQ curve shift (Modifies histogram peak distribution)
     filters.append(f"eq=contrast={contrast:.3f}:brightness={brightness:.3f}:saturation={saturation:.3f}")
     
-    # 5. RGB Spectral Balance Shift (Perturbs deep-learning visual embeddings)
+    # 6. RGB Spectral Balance Shift (Perturbs deep-learning visual embeddings)
     filters.append("colorbalance=rs=0.015:gs=-0.008:bs=0.02:rm=0.01:bm=0.015")
     
-    # 6. Subtle Vignette (Peripheral luminance curve alteration)
+    # 7. Subtle Vignette (Peripheral luminance curve alteration)
     if vignette:
         filters.append("vignette=angle=PI/90")
         
-    # 7. Unsharp Mask (Sharpens edges so video appears enhanced while altering edge gradients)
+    # 8. Unsharp Mask (Sharpens edges so video appears enhanced while altering edge gradients)
     if sharpen:
         filters.append("unsharp=3:3:0.6")
+
+    # 9. Cinematic PiP Border Frame (Adds 3% clean dark border to alter bounding box aspect)
+    border_frame = video_config.get("border_frame", True)
+    if border_frame:
+        # Scales video down slightly then pads with 2*trunc even dimensions
+        filters.append("scale=w='2*trunc(iw*0.94/2)':h='2*trunc(ih*0.94/2)'")
+        filters.append("pad=w='2*trunc(iw/0.94/2)':h='2*trunc(ih/0.94/2)':x='(ow-iw)/2':y='(oh-ih)/2':color=black")
     
-    # 8. FPS Standardization (skip if 0 to avoid unnecessary re-mux)
+    # 10. FPS Standardization (skip if 0 to avoid unnecessary re-mux)
     if fps_target > 0:
         filters.append(f"fps={fps_target}")
     
-    # 9. Clean standard pixel format
+    # 11. Clean standard pixel format
     filters.append("format=yuv420p")
     
     return ",".join(filters)
