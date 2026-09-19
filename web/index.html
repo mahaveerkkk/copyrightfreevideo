@@ -3,219 +3,250 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>CR-SHIELD AI | 1-Click Copyright Remover</title>
+    <title>CR-SHIELD AI | Anti-Copyright Studio</title>
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0a0d14">
+    <meta name="theme-color" content="#07090e">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="ambient-glow"></div>
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
 
-    <!-- Navigation -->
-    <header class="app-nav">
-        <div class="nav-container">
+    <!-- Header Navbar -->
+    <header class="app-header">
+        <div class="header-inner">
             <div class="brand">
-                <div class="brand-icon">⚡</div>
-                <div class="brand-info">
-                    <span class="brand-title">CR-SHIELD <span class="badge-pro">PRO 3.0</span></span>
-                    <span class="brand-sub">AI Anti-Copyright & Video Transformer</span>
+                <div class="brand-badge">⚡</div>
+                <div>
+                    <h1 class="brand-title">CR-SHIELD <span class="badge-pro">PRO 3.0</span></h1>
+                    <p class="brand-subtitle">AI Anti-Copyright & Video Transformer</p>
                 </div>
             </div>
-            <div class="server-pill">
-                <span class="pulse-green"></span>
-                <span>Railway Cloud Active</span>
+            <div class="status-chip">
+                <span class="live-dot"></span>
+                <span>Active 2 vCPU</span>
             </div>
         </div>
     </header>
 
-    <main class="app-main">
-        <div class="main-wrapper">
+    <!-- Main Content Container -->
+    <main class="app-container">
+        
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-chip">🛡️ Zero-Copyright Engine</div>
+            <h2 class="hero-title">Make Any Video <span class="gradient-text">100% Safe</span></h2>
+            <p class="hero-desc">Bypass YouTube Content ID & FB Rights Manager automatically using pHash scrambling, vocal extraction, and micro-shift DSP.</p>
+        </section>
+
+        <!-- Main Configuration Card -->
+        <div class="glass-card" id="configCard">
             
-            <!-- Hero Header -->
-            <div class="hero-header">
-                <h1 class="hero-title">Make Any Video <span class="gradient-text">100% Copyright-Free</span></h1>
-                <p class="hero-desc">Bypass YouTube Content ID & Facebook Rights Manager in seconds. Scrambles video pHash, replaces copyrighted music, and strips 100% metadata.</p>
-            </div>
-
-            <!-- Upload & Config Card -->
-            <div class="studio-card" id="configCard">
+            <!-- Video Upload Box -->
+            <div class="dropzone-box" id="dropZone">
+                <input type="file" id="fileInput" accept="video/*" hidden>
                 
-                <!-- 1. Drop Zone / Video Picker -->
-                <div class="upload-box" id="dropZone">
-                    <input type="file" id="fileInput" accept="video/*" hidden>
-                    
-                    <div id="dropPrompt" class="drop-prompt-content">
-                        <div class="upload-icon-circle">
-                            <span>📤</span>
-                        </div>
-                        <h3 class="upload-main-text">Choose video or drag & drop here</h3>
-                        <p class="upload-sub-text">Supports MP4, MOV, MKV, AVI, WEBM (Up to 2GB • Chunked Upload Safe)</p>
-                        <button type="button" class="btn-browse">Select Video File</button>
+                <!-- Prompt State -->
+                <div id="dropPrompt" class="drop-prompt">
+                    <div class="upload-icon-wrapper">
+                        <svg class="upload-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
                     </div>
+                    <div class="upload-text-group">
+                        <h3 class="upload-title">Choose video or drag & drop</h3>
+                        <p class="upload-sub">MP4, MOV, MKV, AVI • Up to 2GB • Safe Slicing</p>
+                    </div>
+                    <button type="button" class="btn-select">Select Video File</button>
+                </div>
 
-                    <!-- Selected Video Thumbnail & Info -->
-                    <div id="selectedPreview" class="selected-preview-content" style="display: none;">
+                <!-- Preview State -->
+                <div id="selectedPreview" class="preview-wrap" style="display: none;">
+                    <div class="video-mockup-frame">
                         <video id="sourceVideoPlayer" playsinline muted loop controls></video>
-                        <div class="file-details-bar">
-                            <div class="file-meta-text">
-                                <span class="file-name-text" id="fileNameLabel">video.mp4</span>
-                                <span class="file-size-text" id="fileSizeLabel">0 MB</span>
-                            </div>
-                            <button type="button" class="btn-change-file" id="changeFileBtn">Change</button>
+                    </div>
+                    <div class="file-chip-row">
+                        <div class="file-chip-info">
+                            <span class="file-chip-name" id="fileNameLabel">video.mp4</span>
+                            <span class="file-chip-size" id="fileSizeLabel">0 MB</span>
                         </div>
+                        <button type="button" class="btn-change" id="changeFileBtn">Change</button>
                     </div>
                 </div>
-
-                <!-- 2. Mode Selector -->
-                <div class="section-title">
-                    <span class="step-badge">1</span>
-                    <span>Select Processing Engine</span>
-                </div>
-                <div class="mode-selector-grid">
-                    <div class="mode-card active" id="modeTurboCard" data-mode="turbo">
-                        <div class="mode-card-header">
-                            <span class="mode-emoji">⚡</span>
-                            <span class="mode-pill pill-turbo">FAST • 5 SECONDS</span>
-                        </div>
-                        <h4 class="mode-heading">Turbo DSP Shield</h4>
-                        <p class="mode-text">Micro-pitch shift, stereo widening, dynamic crop, micro-tilt, film grain & metadata purge. Best for fast bulk uploads.</p>
-                    </div>
-
-                    <div class="mode-card" id="modeDeepCard" data-mode="ai_deep">
-                        <div class="mode-card-header">
-                            <span class="mode-emoji">🧠</span>
-                            <span class="mode-pill pill-deep">AI DEEP STUDIO</span>
-                        </div>
-                        <h4 class="mode-heading">AI Stem Separation & Canvas</h4>
-                        <p class="mode-text">Isolates speech/dialogues, mutes copyrighted music, layers clean royalty-free BGM, and adds 9:16 viral shorts canvas.</p>
-                    </div>
-                </div>
-
-                <!-- AI Options Box (when AI mode active) -->
-                <div class="ai-config-panel" id="aiConfigPanel" style="display: none;">
-                    <h5 class="panel-subtitle">🧠 AI Deep Studio Controls</h5>
-                    <label class="check-container">
-                        <input type="checkbox" id="vocalSwapToggle" checked>
-                        <span class="check-label"><strong>AI Vocal Isolation & BGM Swap</strong> (Removes background song, keeps dialogues clear)</span>
-                    </label>
-
-                    <div class="bgm-select-row">
-                        <label for="bgmChoice">Replacement Royalty-Free BGM:</label>
-                        <select id="bgmChoice" class="custom-select">
-                            <option value="lofi_chill">Lo-Fi Chill (Relaxing Acoustic)</option>
-                            <option value="cinematic_tension">Cinematic Tension (Suspense Drone)</option>
-                        </select>
-                    </div>
-
-                    <label class="check-container" style="margin-top: 12px;">
-                        <input type="checkbox" id="splitScreenToggle">
-                        <span class="check-label"><strong>9:16 Viral Shorts/Reels Layout</strong> (Top clip + bottom satisfying canvas for monetization)</span>
-                    </label>
-                </div>
-
-                <!-- 3. Preset Cards -->
-                <div class="section-title" style="margin-top: 1.6rem;">
-                    <span class="step-badge">2</span>
-                    <span>Target Content Preset</span>
-                </div>
-                <div class="presets-grid" id="presetsContainer">
-                    <!-- Injected via JavaScript -->
-                </div>
-
-                <!-- 4. Submit Button -->
-                <button type="button" class="btn-action-glow" id="startBtn" disabled>
-                    <span class="btn-sparkle">✨</span>
-                    <span id="startBtnLabel">Select a Video to Begin</span>
-                </button>
             </div>
 
-            <!-- Live Progress / Output Card -->
-            <div class="studio-card" id="progressCard" style="display: none;">
-                <div class="progress-state-container">
-                    
-                    <!-- Progress Bar & Status -->
-                    <div id="processingView">
-                        <div class="spinner-neon"></div>
-                        <h3 class="progress-headline" id="mainStatusText">Uploading video to Railway...</h3>
-                        <p class="progress-substatus" id="subStatusText">Chunk 1 / 15 (0%)</p>
-                        
-                        <div class="progress-track">
-                            <div class="progress-fill" id="progressBar"></div>
-                        </div>
-                        <div class="progress-percentage-label" id="progressPercentLabel">0%</div>
+            <!-- Engine Mode Selector -->
+            <div class="section-label">
+                <span class="step-num">1</span>
+                <span>Select Processing Engine</span>
+            </div>
 
-                        <div class="terminal-box" id="terminalOutput">
-                            <div class="terminal-line">[INIT] Ready to upload...</div>
-                        </div>
+            <div class="mode-grid">
+                <!-- Turbo Mode -->
+                <div class="mode-card active" id="modeTurboCard" data-mode="turbo">
+                    <div class="mode-top">
+                        <span class="mode-icon">⚡</span>
+                        <span class="mode-tag tag-turbo">TURBO • 5s</span>
                     </div>
+                    <div class="mode-title">Turbo DSP Shield</div>
+                    <div class="mode-desc">Micro-pitch shift, dynamic crop, film grain & EXIF purge. Ultra-fast and lightweight.</div>
+                </div>
 
-                    <!-- Output Complete View -->
-                    <div id="completedView" style="display: none;">
-                        <div class="success-header">
-                            <div class="success-icon">🎉</div>
-                            <h2>Copyright Successfully Removed!</h2>
-                            <p>Video is 100% clean, metadata stripped, and ready for safe upload.</p>
-                        </div>
-
-                        <!-- Player Tabs -->
-                        <div class="player-nav-tabs">
-                            <button class="player-tab active" id="tabSinglePlayer">🎬 Safe Video</button>
-                            <button class="player-tab" id="tabDualPlayer">⚖️ Before vs After (Side-by-Side)</button>
-                        </div>
-
-                        <!-- Single Video Player -->
-                        <div class="player-single-container" id="singlePlayerBox">
-                            <video id="finalVideoPlayer" controls playsinline></video>
-                        </div>
-
-                        <!-- Dual Side-by-Side Comparison -->
-                        <div class="player-dual-container" id="dualPlayerBox" style="display: none;">
-                            <div class="dual-pane">
-                                <span class="pane-badge badge-raw">Original Raw</span>
-                                <video id="rawVideoPlayer" controls playsinline muted></video>
-                            </div>
-                            <div class="dual-pane">
-                                <span class="pane-badge badge-clean">Safe Transformed</span>
-                                <video id="dualCleanPlayer" controls playsinline></video>
-                            </div>
-                        </div>
-
-                        <!-- Safety Audit Badges -->
-                        <div class="audit-strip">
-                            <div class="audit-item">
-                                <span class="audit-dot green"></span>
-                                <span>EXIF Metadata: <strong>Wiped</strong></span>
-                            </div>
-                            <div class="audit-item">
-                                <span class="audit-dot cyan"></span>
-                                <span>pHash Distance: <strong>Scrambled</strong></span>
-                            </div>
-                            <div class="audit-item">
-                                <span class="audit-dot green"></span>
-                                <span>Audio Spectrogram: <strong>Masked</strong></span>
-                            </div>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="result-action-row">
-                            <a id="downloadSafeBtn" class="btn-download-green" download="safe_video.mp4">
-                                <span>⬇️ Download Copyright-Free Video</span>
-                            </a>
-                            <button type="button" class="btn-reset-light" id="restartBtn">🔄 Process Another Video</button>
-                        </div>
+                <!-- Deep Studio Mode -->
+                <div class="mode-card" id="modeDeepCard" data-mode="ai_deep">
+                    <div class="mode-top">
+                        <span class="mode-icon">🧠</span>
+                        <span class="mode-tag tag-deep">AI DEEP STUDIO</span>
                     </div>
+                    <div class="mode-title">AI Stem & Canvas</div>
+                    <div class="mode-desc">Isolates dialogues, mutes copyrighted music, layers clean BGM & 9:16 Shorts canvas.</div>
+                </div>
+            </div>
 
+            <!-- AI Deep Controls (Shown when AI Mode is active) -->
+            <div class="ai-controls-box" id="aiConfigPanel" style="display: none;">
+                <div class="ai-header">
+                    <span class="ai-header-dot"></span>
+                    <span>AI Deep Studio Parameters</span>
+                </div>
+                
+                <label class="custom-toggle">
+                    <input type="checkbox" id="vocalSwapToggle" checked>
+                    <div class="toggle-slider"></div>
+                    <div class="toggle-text">
+                        <strong>AI Vocal Isolation & BGM Swap</strong>
+                        <span>Keeps voices crisp, replaces background song completely</span>
+                    </div>
+                </label>
+
+                <div class="bgm-selector-group">
+                    <label class="bgm-label" for="bgmChoice">Replacement Clean BGM:</label>
+                    <select id="bgmChoice" class="styled-select">
+                        <option value="lofi_chill">🎵 Lo-Fi Chill (Relaxing & Peaceful)</option>
+                        <option value="cinematic_tension">🎬 Cinematic Tension (Suspense Drone)</option>
+                    </select>
+                </div>
+
+                <label class="custom-toggle" style="margin-top: 10px;">
+                    <input type="checkbox" id="splitScreenToggle">
+                    <div class="toggle-slider"></div>
+                    <div class="toggle-text">
+                        <strong>9:16 Viral Shorts / Reels Canvas</strong>
+                        <span>Adds high-retention gameplay bottom canvas for monetization</span>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Preset Cards -->
+            <div class="section-label" style="margin-top: 1.4rem;">
+                <span class="step-num">2</span>
+                <span>Select Target Platform Preset</span>
+            </div>
+            
+            <div class="presets-grid" id="presetsContainer">
+                <!-- Dynamically filled by app.js -->
+            </div>
+
+            <!-- Action Button -->
+            <button type="button" class="btn-start-action" id="startBtn" disabled>
+                <span class="btn-icon">⚡</span>
+                <span id="startBtnLabel">Select a Video to Begin</span>
+            </button>
+
+        </div>
+
+        <!-- Processing & Result Card -->
+        <div class="glass-card" id="progressCard" style="display: none;">
+            
+            <!-- Live Progress View -->
+            <div id="processingView" class="processing-block">
+                <div class="radar-spinner">
+                    <div class="radar-pulse"></div>
+                    <span class="radar-icon">⚡</span>
+                </div>
+
+                <h3 class="status-heading" id="mainStatusText">Uploading video to Railway...</h3>
+                <p class="status-subline" id="subStatusText">Chunk 1 / 15 (0%)</p>
+
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" id="progressBar"></div>
+                </div>
+
+                <div class="progress-number" id="progressPercentLabel">0%</div>
+
+                <div class="live-terminal" id="terminalOutput">
+                    <div class="term-row">[SYSTEM] Initializing cloud engine...</div>
+                </div>
+            </div>
+
+            <!-- Completed View -->
+            <div id="completedView" style="display: none;">
+                <div class="success-banner">
+                    <div class="success-badge-icon">✓</div>
+                    <h3 class="success-title">Copyright Successfully Bypassed!</h3>
+                    <p class="success-desc">pHash scrambled, EXIF purged, audio spectrogram masked. Ready for publish.</p>
+                </div>
+
+                <!-- Tabs -->
+                <div class="tab-switcher">
+                    <button type="button" class="tab-btn active" id="tabSinglePlayer">🎬 Safe Video</button>
+                    <button type="button" class="tab-btn" id="tabDualPlayer">⚖️ Before vs After</button>
+                </div>
+
+                <!-- Single Player -->
+                <div id="singlePlayerBox" class="player-wrapper">
+                    <video id="finalVideoPlayer" controls playsinline></video>
+                </div>
+
+                <!-- Dual Player -->
+                <div id="dualPlayerBox" class="dual-player-wrapper" style="display: none;">
+                    <div class="dual-card">
+                        <span class="dual-tag tag-raw">Original Raw</span>
+                        <video id="rawVideoPlayer" controls playsinline muted></video>
+                    </div>
+                    <div class="dual-card">
+                        <span class="dual-tag tag-clean">Safe Transformed</span>
+                        <video id="dualCleanPlayer" controls playsinline></video>
+                    </div>
+                </div>
+
+                <!-- Security Verification Strip -->
+                <div class="security-strip">
+                    <div class="sec-item">
+                        <span class="sec-dot green"></span>
+                        <span>Metadata: <strong>Wiped</strong></span>
+                    </div>
+                    <div class="sec-item">
+                        <span class="sec-dot cyan"></span>
+                        <span>pHash: <strong>Scrambled</strong></span>
+                    </div>
+                    <div class="sec-item">
+                        <span class="sec-dot green"></span>
+                        <span>Spectrogram: <strong>Masked</strong></span>
+                    </div>
+                </div>
+
+                <!-- Download & Process Another -->
+                <div class="action-btn-row">
+                    <a id="downloadSafeBtn" class="btn-download" download="safe_video.mp4">
+                        <span>⬇️ Download Copyright-Free Video</span>
+                    </a>
+                    <button type="button" class="btn-reset" id="restartBtn">🔄 Process Another</button>
                 </div>
             </div>
 
         </div>
+
     </main>
 
+    <!-- Footer -->
     <footer class="app-footer">
-        <p>© 2026 CR-SHIELD AI • High-Throughput Content ID & Fair Use Studio</p>
+        <p>© 2026 CR-SHIELD AI Studio • Powered by Railway Cloud 2 vCPU</p>
     </footer>
 
     <script src="app.js"></script>
