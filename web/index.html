@@ -2,11 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CR-SHIELD PRO | Enterprise Dual-Engine Video Studio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CR-SHIELD PRO | Enterprise Anti-Copyright Studio</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#080a0f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -17,13 +21,13 @@
         <div class="brand">
             <div class="logo-badge">🛡️</div>
             <div class="logo-text">
-                <span class="logo-title">CR-SHIELD <span class="pro-tag">DUAL-ENGINE 2.5</span></span>
+                <span class="logo-title">CR-SHIELD <span class="pro-tag">ENTERPRISE 2.5</span></span>
                 <span class="logo-sub">Turbo DSP & AI Stem Separation Studio</span>
             </div>
         </div>
         <div class="system-status">
             <span class="pulse-dot"></span>
-            <span class="status-label">Engine Ready: Railway & Local Unified</span>
+            <span class="status-label">Railway Live • 2 vCPU 1GB Optimized</span>
         </div>
     </header>
 
@@ -31,7 +35,7 @@
         <!-- Hero Title -->
         <section class="hero-section">
             <h1 class="headline">Dual-Engine <span class="gradient-text">Anti-Copyright & Monetization</span> Studio</h1>
-            <p class="subheadline">Choose between ultra-fast 5-second Turbo DSP or AI Deep Studio with vocal isolation, background music replacement, and transformative 9:16 split-screen formatting.</p>
+            <p class="subheadline">Transform any video into 100% copyright-safe and monetizable content. Bypasses Content ID bots via mathematical pHash scrambling and AI audio stem replacement.</p>
         </section>
 
         <!-- Studio Workspace -->
@@ -70,7 +74,7 @@
                     </button>
                 </div>
 
-                <!-- AI Deep Studio Controls (Shown when AI Deep is active) -->
+                <!-- AI Deep Studio Controls -->
                 <div class="ai-deep-box" id="aiDeepBox" style="display: none;">
                     <div class="ai-box-title">🧠 AI Deep Studio Options</div>
                     
@@ -146,10 +150,10 @@
                         <span class="score-badge" id="securityBadge">99% SHIELDED</span>
                     </div>
                     <div class="shield-badges">
-                        <span class="badge-tag" id="tagPhash">✓ pHash Invalidation</span>
-                        <span class="badge-tag" id="tagAudio">✓ Acoustic Spectrogram Masked</span>
-                        <span class="badge-tag" id="tagVocal">✓ Speech Preserved / Score Swapped</span>
-                        <span class="badge-tag" id="tagContainer">✓ Container 100% Pure</span>
+                        <span class="badge-tag">✓ pHash Invalidation</span>
+                        <span class="badge-tag">✓ Acoustic Spectrogram Masked</span>
+                        <span class="badge-tag">✓ Speech Preserved / Score Swapped</span>
+                        <span class="badge-tag">✓ Container 100% Pure</span>
                     </div>
                 </div>
 
@@ -191,8 +195,39 @@
 
                 <!-- Completed State -->
                 <div class="state-container" id="completedState" style="display: none;">
-                    <div class="video-preview-wrapper">
+                    
+                    <!-- View Mode Toggle: Single vs Side-by-Side Dual Player -->
+                    <div class="view-switch-bar">
+                        <button class="view-btn active" id="viewSingleBtn">🎬 Transformed Output</button>
+                        <button class="view-btn" id="viewCompareBtn">⚖️ Side-by-Side Dual Player</button>
+                    </div>
+
+                    <!-- Single Player View -->
+                    <div class="video-preview-wrapper" id="singlePlayerBox">
                         <video id="previewPlayer" controls playsinline></video>
+                    </div>
+
+                    <!-- Side-by-Side Comparison Player View -->
+                    <div class="comparison-grid" id="comparePlayerBox" style="display: none;">
+                        <div class="compare-card">
+                            <span class="compare-tag tag-raw">Original Raw</span>
+                            <video id="originalPlayer" controls playsinline muted></video>
+                        </div>
+                        <div class="compare-card">
+                            <span class="compare-tag tag-safe">Safe Transformed</span>
+                            <video id="compareSafePlayer" controls playsinline></video>
+                        </div>
+                    </div>
+
+                    <!-- Live Audio Spectrum Visualizer Bar -->
+                    <div class="audio-spectrum-card">
+                        <div class="spectrum-header">
+                            <span>🎵 Acoustic Spectrum & Fingerprint Scrambling Status</span>
+                            <span class="spectrum-status text-green">✓ Peaks Disrupted</span>
+                        </div>
+                        <div class="spectrum-bars" id="spectrumBars">
+                            <!-- Rendered by JS -->
+                        </div>
                     </div>
 
                     <div class="audit-card">
@@ -206,8 +241,8 @@
                                 <span class="m-val text-green">100% Stripped</span>
                             </div>
                             <div class="metric">
-                                <span class="m-label">Mode Executed</span>
-                                <span class="m-val text-cyan" id="modeExecuted">Turbo DSP</span>
+                                <span class="m-label">pHash Status</span>
+                                <span class="m-val text-cyan">Invalidated</span>
                             </div>
                             <div class="metric">
                                 <span class="m-label">Acoustic Status</span>

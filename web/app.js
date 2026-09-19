@@ -17,11 +17,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     const stageMessage = document.getElementById("stageMessage");
     const terminalLog = document.getElementById("terminalLog");
 
+    // Output Player elements
     const previewPlayer = document.getElementById("previewPlayer");
+    const singlePlayerBox = document.getElementById("singlePlayerBox");
+    const comparePlayerBox = document.getElementById("comparePlayerBox");
+    const originalPlayer = document.getElementById("originalPlayer");
+    const compareSafePlayer = document.getElementById("compareSafePlayer");
+    const viewSingleBtn = document.getElementById("viewSingleBtn");
+    const viewCompareBtn = document.getElementById("viewCompareBtn");
+
+    const spectrumBars = document.getElementById("spectrumBars");
     const downloadBtn = document.getElementById("downloadBtn");
     const resetBtn = document.getElementById("resetBtn");
     const auditTimer = document.getElementById("auditTimer");
-    const modeExecuted = document.getElementById("modeExecuted");
     const acousticStatus = document.getElementById("acousticStatus");
 
     // Mode Tabs & AI Box
@@ -59,6 +67,63 @@ document.addEventListener("DOMContentLoaded", async () => {
     let activeMode = "turbo";
     let presetsCache = {};
     let activeEventSource = null;
+    let spectrumInterval = null;
+
+    // Initialize 36 Spectrum Bars
+    spectrumBars.innerHTML = "";
+    for (let i = 0; i < 36; i++) {
+        const bar = document.createElement("div");
+        bar.className = "bar";
+        bar.style.height = `${Math.floor(Math.random() * 20 + 6)}px`;
+        spectrumBars.appendChild(bar);
+    }
+
+    function animateSpectrum(active) {
+        if (spectrumInterval) clearInterval(spectrumInterval);
+        if (!active) {
+            document.querySelectorAll(".spectrum-bars .bar").forEach(b => b.style.height = "6px");
+            return;
+        }
+        spectrumInterval = setInterval(() => {
+            document.querySelectorAll(".spectrum-bars .bar").forEach(b => {
+                b.style.height = `${Math.floor(Math.random() * 26 + 4)}px`;
+            });
+        }, 120);
+    }
+
+    // Single vs Compare Switcher
+    viewSingleBtn.addEventListener("click", () => {
+        viewSingleBtn.classList.add("active");
+        viewCompareBtn.classList.remove("active");
+        singlePlayerBox.style.display = "block";
+        comparePlayerBox.style.display = "none";
+        originalPlayer.pause();
+        compareSafePlayer.pause();
+    });
+
+    viewCompareBtn.addEventListener("click", () => {
+        viewCompareBtn.classList.add("active");
+        viewSingleBtn.classList.remove("active");
+        singlePlayerBox.style.display = "none";
+        comparePlayerBox.style.display = "grid";
+        previewPlayer.pause();
+    });
+
+    // Sync Playback for Dual Comparison
+    compareSafePlayer.addEventListener("play", () => {
+        originalPlayer.play().catch(() => {});
+        animateSpectrum(true);
+    });
+    compareSafePlayer.addEventListener("pause", () => {
+        originalPlayer.pause();
+        animateSpectrum(false);
+    });
+    compareSafePlayer.addEventListener("seeked", () => {
+        originalPlayer.currentTime = compareSafePlayer.currentTime;
+    });
+
+    previewPlayer.addEventListener("play", () => animateSpectrum(true));
+    previewPlayer.addEventListener("pause", () => animateSpectrum(false));
 
     // Mode Tab Switching
     tabTurbo.addEventListener("click", () => {
@@ -327,10 +392,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const streamUrl = `/api/download/${jobId}`;
             previewPlayer.src = streamUrl;
-            downloadBtn.href = streamUrl;
-            downloadBtn.setAttribute("download", `safe_${selectedFile.name}`);
+            compareSafePlayer.src = streamUrl;
+            
+            if (selectedFile) {
+                originalPlayer.src = URL.createObjectURL(selectedFile);
+            }
 
-            modeExecuted.innerText = (activeMode === "turbo" ? "Turbo DSP" : "AI Deep Studio");
+            downloadBtn.href = streamUrl;
+            downloadBtn.setAttribute("download", `safe_${selectedFile ? selectedFile.name : 'video.mp4'}`);
+
             acousticStatus.innerText = (activeMode === "turbo" ? "Phase Shifted" : "BGM Replaced");
 
             if (data.elapsed) {
@@ -350,5 +420,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         processBtn.disabled = true;
         previewPlayer.pause();
         previewPlayer.src = "";
+        originalPlayer.pause();
+        originalPlayer.src = "";
+        compareSafePlayer.pause();
+        compareSafePlayer.src = "";
+        animateSpectrum(false);
     });
 });
