@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CR-SHIELD PRO | Enterprise Dual-Engine Video Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="glow-bg"></div>
+
+    <!-- Header -->
+    <header class="navbar">
+        <div class="brand">
+            <div class="logo-badge">🛡️</div>
+            <div class="logo-text">
+                <span class="logo-title">CR-SHIELD <span class="pro-tag">DUAL-ENGINE 2.5</span></span>
+                <span class="logo-sub">Turbo DSP & AI Stem Separation Studio</span>
+            </div>
+        </div>
+        <div class="system-status">
+            <span class="pulse-dot"></span>
+            <span class="status-label">Engine Ready: Railway & Local Unified</span>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Hero Title -->
+        <section class="hero-section">
+            <h1 class="headline">Dual-Engine <span class="gradient-text">Anti-Copyright & Monetization</span> Studio</h1>
+            <p class="subheadline">Choose between ultra-fast 5-second Turbo DSP or AI Deep Studio with vocal isolation, background music replacement, and transformative 9:16 split-screen formatting.</p>
+        </section>
+
+        <!-- Studio Workspace -->
+        <div class="studio-grid">
+            <!-- Left: Upload & Configuration -->
+            <div class="panel upload-panel">
+                <h2 class="panel-title">1. Upload Source Media</h2>
+                
+                <div class="drop-zone" id="dropZone">
+                    <input type="file" id="fileInput" accept="video/*" hidden>
+                    <div class="drop-icon">📹</div>
+                    <p class="drop-prompt">Drag & drop video here or <span class="highlight">Browse File</span></p>
+                    <span class="drop-hint">Supports MP4, MOV, MKV, AVI, WEBM up to 2GB</span>
+                    <div class="file-chip" id="fileChip" style="display: none;">
+                        <span class="file-chip-name" id="fileName">video.mp4</span>
+                        <span class="file-chip-size" id="fileSize">0 MB</span>
+                    </div>
+                </div>
+
+                <h2 class="panel-title" style="margin-top: 1.5rem;">2. Choose Transformation Mode</h2>
+                <!-- Dual Engine Tabs -->
+                <div class="mode-tabs">
+                    <button class="mode-tab active" id="tabTurbo" type="button">
+                        <span class="tab-icon">⚡</span>
+                        <div class="tab-info">
+                            <span class="tab-title">Turbo DSP Mode</span>
+                            <span class="tab-sub">Fast (4-8s) • Full pHash & Audio Shift</span>
+                        </div>
+                    </button>
+                    <button class="mode-tab" id="tabDeep" type="button">
+                        <span class="tab-icon">🧠</span>
+                        <div class="tab-info">
+                            <span class="tab-title">AI Deep Studio</span>
+                            <span class="tab-sub">Vocal Split • BGM Swap • 9:16 Shorts Canvas</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- AI Deep Studio Controls (Shown when AI Deep is active) -->
+                <div class="ai-deep-box" id="aiDeepBox" style="display: none;">
+                    <div class="ai-box-title">🧠 AI Deep Studio Options</div>
+                    
+                    <label class="ai-checkbox-row">
+                        <input type="checkbox" id="vocalSwapCheck" checked>
+                        <span><strong>AI Vocal Isolation & BGM Swap</strong> (Mutes copyrighted score, preserves speech)</span>
+                    </label>
+
+                    <div class="ai-select-row" id="bgmRow">
+                        <label for="bgmSelect">Safe Replacement BGM:</label>
+                        <select id="bgmSelect" class="cyber-select">
+                            <option value="lofi_chill">Lo-Fi Chill (Relaxing Acoustic)</option>
+                            <option value="cinematic_tension">Cinematic Tension (Suspense Drone)</option>
+                        </select>
+                    </div>
+
+                    <label class="ai-checkbox-row" style="margin-top: 10px;">
+                        <input type="checkbox" id="splitScreenCheck">
+                        <span><strong>9:16 Transformative Split-Screen</strong> (Top clip + bottom viral canvas for Shorts/Reels)</span>
+                    </label>
+                </div>
+
+                <h2 class="panel-title" style="margin-top: 1.5rem;">3. Base Protection Preset</h2>
+                <div class="preset-grid" id="presetGrid">
+                    <!-- Loaded dynamically via JavaScript -->
+                </div>
+
+                <!-- Pro Studio Fine-Tuning Accordion -->
+                <div class="customizer-box">
+                    <div class="customizer-toggle" id="customizerToggle">
+                        <span>⚙️ Pro Studio Fine-Tuning (Sliders & Toggles)</span>
+                        <span class="toggle-arrow" id="toggleArrow">▼</span>
+                    </div>
+                    <div class="customizer-body" id="customizerBody" style="display: none;">
+                        
+                        <div class="sub-heading">🎬 Visual Transformations</div>
+                        <div class="control-row">
+                            <label>Dynamic Zoom: <span class="val-badge" id="zoomVal">1.045x</span></label>
+                            <input type="range" id="zoomSlider" min="1.00" max="1.10" step="0.005" value="1.045">
+                        </div>
+                        <div class="control-row">
+                            <label>Micro-Tilt / Rotation: <span class="val-badge" id="tiltVal">0.45°</span></label>
+                            <input type="range" id="tiltSlider" min="0.00" max="1.50" step="0.05" value="0.45">
+                        </div>
+                        <div class="control-row">
+                            <label>Film Grain / Noise: <span class="val-badge" id="grainVal">2.2%</span></label>
+                            <input type="range" id="grainSlider" min="0.0" max="5.0" step="0.2" value="2.2">
+                        </div>
+                        <div class="toggle-row">
+                            <label><input type="checkbox" id="vignetteCheck" checked> Cinematic Vignette</label>
+                            <label><input type="checkbox" id="sharpenCheck" checked> Edge Sharpener</label>
+                        </div>
+
+                        <div class="sub-heading" style="margin-top: 1rem;">🎵 Audio Transformations</div>
+                        <div class="control-row">
+                            <label>Harmonic Pitch Shift: <span class="val-badge" id="pitchVal">+0.50 st</span></label>
+                            <input type="range" id="pitchSlider" min="-1.00" max="1.50" step="0.05" value="0.50">
+                        </div>
+                        <div class="control-row">
+                            <label>Micro-Tempo Acceleration: <span class="val-badge" id="tempoVal">1.030x</span></label>
+                            <input type="range" id="tempoSlider" min="0.95" max="1.10" step="0.005" value="1.030">
+                        </div>
+                        <div class="toggle-row">
+                            <label><input type="checkbox" id="widenCheck" checked> Stereo Phase Widening</label>
+                            <label><input type="checkbox" id="notchCheck" checked> 3.2kHz Notch Filter</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="security-score-card">
+                    <div class="score-header">
+                        <span>🛡️ Disruption Safety Score</span>
+                        <span class="score-badge" id="securityBadge">99% SHIELDED</span>
+                    </div>
+                    <div class="shield-badges">
+                        <span class="badge-tag" id="tagPhash">✓ pHash Invalidation</span>
+                        <span class="badge-tag" id="tagAudio">✓ Acoustic Spectrogram Masked</span>
+                        <span class="badge-tag" id="tagVocal">✓ Speech Preserved / Score Swapped</span>
+                        <span class="badge-tag" id="tagContainer">✓ Container 100% Pure</span>
+                    </div>
+                </div>
+
+                <button class="btn-primary" id="processBtn" disabled>
+                    <span class="btn-icon">⚡</span>
+                    <span class="btn-text" id="btnActionText">Initiate Turbo Transformation</span>
+                </button>
+            </div>
+
+            <!-- Right: Live Processing & Output Preview -->
+            <div class="panel preview-panel">
+                <h2 class="panel-title">Output & Inspection</h2>
+
+                <!-- Idle State -->
+                <div class="state-container" id="idleState">
+                    <div class="empty-icon">⚙️</div>
+                    <h3>Engine Standing By</h3>
+                    <p>Select your video, pick Turbo or AI Deep Studio mode, and start transformation.</p>
+                </div>
+
+                <!-- Processing State -->
+                <div class="state-container" id="processingState" style="display: none;">
+                    <div class="spinner-radar">
+                        <div class="radar-core"></div>
+                    </div>
+                    <div class="progress-info">
+                        <div class="progress-labels">
+                            <span class="progress-title" id="stageMessage">Initializing transformation engine...</span>
+                            <span class="progress-pct" id="progressPct">0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    <div class="terminal-log" id="terminalLog">
+                        <div class="log-line">[SYS] Initializing multi-threaded filtergraph...</div>
+                    </div>
+                </div>
+
+                <!-- Completed State -->
+                <div class="state-container" id="completedState" style="display: none;">
+                    <div class="video-preview-wrapper">
+                        <video id="previewPlayer" controls playsinline></video>
+                    </div>
+
+                    <div class="audit-card">
+                        <div class="audit-header">
+                            <span class="audit-badge">✓ PURE CONTAINER & AUDITED</span>
+                            <span class="audit-timer" id="auditTimer">0.0s</span>
+                        </div>
+                        <div class="audit-metrics">
+                            <div class="metric">
+                                <span class="m-label">EXIF & Tags</span>
+                                <span class="m-val text-green">100% Stripped</span>
+                            </div>
+                            <div class="metric">
+                                <span class="m-label">Mode Executed</span>
+                                <span class="m-val text-cyan" id="modeExecuted">Turbo DSP</span>
+                            </div>
+                            <div class="metric">
+                                <span class="m-label">Acoustic Status</span>
+                                <span class="m-val text-green" id="acousticStatus">Safe Mixed</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <a id="downloadBtn" class="btn-download" download="safe_video.mp4">
+                            <span>⬇️ Download Safe Video</span>
+                        </a>
+                        <button class="btn-secondary" id="resetBtn">🔄 Process Another</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>© 2026 CR-SHIELD ENTERPRISE • Unified Single-Service Deployment for Railway.app & Localhost</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
