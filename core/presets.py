@@ -18,7 +18,7 @@ PRESETS = {
             "noise_grain": 2.2,
             "vignette": True,
             "sharpen": True,
-            "fps_target": 0,
+            "fps_target": 29.97,
         },
         "audio": {
             "pitch_semitones": 0.5,
@@ -43,7 +43,7 @@ PRESETS = {
             "noise_grain": 1.8,
             "vignette": False,
             "sharpen": True,
-            "fps_target": 0,
+            "fps_target": 30.0,
         },
         "audio": {
             "pitch_semitones": 0.6,
@@ -68,7 +68,7 @@ PRESETS = {
             "noise_grain": 2.5,
             "vignette": True,
             "sharpen": True,
-            "fps_target": 0,
+            "fps_target": 24.0,
         },
         "audio": {
             "pitch_semitones": 0.4,
@@ -93,7 +93,7 @@ PRESETS = {
             "noise_grain": 1.6,
             "vignette": False,
             "sharpen": True,
-            "fps_target": 0,
+            "fps_target": 29.97,
         },
         "audio": {
             "pitch_semitones": 0.75,
