@@ -270,15 +270,31 @@
             <div class="studio-header-banner">
                 <div class="banner-badge">🔥 AI HOOK DETECTION</div>
                 <h3 class="banner-title">Auto-Find 30s Viral Moments</h3>
-                <p class="banner-sub">Lambi movie ya podcast ka YouTube link daalo. AI automatically best viral scenes dhoondh kar cut karne ke liye timestamps de dega!</p>
+                <p class="banner-sub">Lambi movie ya podcast ka YouTube link daalo ya phone se video chuno. AI automatically best viral scenes dhoondh kar cut karne ke liye timestamps de dega!</p>
             </div>
 
-            <div class="yt-input-group">
+            <!-- Studio 2 Input Source Switcher -->
+            <div class="source-nav-tabs">
+                <button type="button" class="source-tab active" id="tabHookYt">🔴 Paste YouTube Link</button>
+                <button type="button" class="source-tab" id="tabHookUpload">📁 Upload from Phone</button>
+            </div>
+
+            <div class="yt-input-group" id="hookYtBox">
                 <input type="url" id="hookYtUrlInput" class="yt-url-field" placeholder="Paste YouTube Video / Podcast URL..." autocomplete="off">
                 <button type="button" class="btn-fetch-yt" id="btnFindHooks">
                     <span id="hookSpinner" class="btn-spinner" style="display: none;"></span>
                     <span id="hookBtnText">🎯 Find Viral Hooks</span>
                 </button>
+            </div>
+
+            <div class="dropzone-box" id="hookDropZone" style="display: none;">
+                <input type="file" id="hookFileInput" accept="video/*" hidden>
+                <div class="upload-icon-wrapper">
+                    <span style="font-size: 1.4rem;">📁</span>
+                </div>
+                <h4 style="font-size: 0.88rem; margin-bottom: 4px;">Choose Video from Phone</h4>
+                <p style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px;">Upload podcast or movie clip to detect viral moments</p>
+                <button type="button" class="btn-select" id="btnSelectHookFile">Select Video File</button>
             </div>
 
             <!-- Hook Results Area -->
@@ -297,11 +313,27 @@
             <div class="studio-header-banner">
                 <div class="banner-badge">🎵 AUDIO SCRAMBLER</div>
                 <h3 class="banner-title">Make Any Song 100% Copyright-Free</h3>
-                <p class="banner-sub">YouTube song ka link dalo. Ye automated audio fingerprint ko tod kar Slowed + Reverb ya Lo-Fi Chill me convert karega!</p>
+                <p class="banner-sub">YouTube song ka link dalo ya phone se song upload karo. Ye automated audio fingerprint ko tod kar Slowed + Reverb ya Lo-Fi Chill me convert karega!</p>
             </div>
 
-            <div class="yt-input-group">
+            <!-- Studio 3 Input Source Switcher -->
+            <div class="source-nav-tabs">
+                <button type="button" class="source-tab active" id="tabLofiYt">🔴 Paste YouTube Link</button>
+                <button type="button" class="source-tab" id="tabLofiUpload">📁 Upload from Phone</button>
+            </div>
+
+            <div class="yt-input-group" id="lofiYtBox">
                 <input type="url" id="lofiYtUrlInput" class="yt-url-field" placeholder="Paste YouTube Song / Music Video URL..." autocomplete="off">
+            </div>
+
+            <div class="dropzone-box" id="lofiDropZone" style="display: none;">
+                <input type="file" id="lofiFileInput" accept="audio/*,video/*" hidden>
+                <div class="upload-icon-wrapper">
+                    <span style="font-size: 1.4rem;">🎵</span>
+                </div>
+                <h4 style="font-size: 0.88rem; margin-bottom: 4px;" id="lofiFileNameLabel">Choose Song from Phone</h4>
+                <p style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px;">MP3, WAV, AAC, MP4 audio</p>
+                <button type="button" class="btn-select" id="btnSelectLofiFile">Select Audio File</button>
             </div>
 
             <!-- Style Selector -->

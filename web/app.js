@@ -138,6 +138,82 @@ document.addEventListener("DOMContentLoaded", async () => {
     btnStudioHook.addEventListener("click", () => switchMasterStudio("hook"));
     btnStudioLofi.addEventListener("click", () => switchMasterStudio("lofi"));
 
+    // Studio 2 & 3 Input Mode Tabs & Phone Upload Handlers
+    const tabHookYt = document.getElementById("tabHookYt");
+    const tabHookUpload = document.getElementById("tabHookUpload");
+    const hookYtBox = document.getElementById("hookYtBox");
+    const hookDropZone = document.getElementById("hookDropZone");
+    const hookFileInput = document.getElementById("hookFileInput");
+    const btnSelectHookFile = document.getElementById("btnSelectHookFile");
+
+    tabHookYt.addEventListener("click", () => {
+        tabHookYt.classList.add("active");
+        tabHookUpload.classList.remove("active");
+        hookYtBox.style.display = "flex";
+        hookDropZone.style.display = "none";
+    });
+
+    tabHookUpload.addEventListener("click", () => {
+        tabHookUpload.classList.add("active");
+        tabHookYt.classList.remove("active");
+        hookYtBox.style.display = "none";
+        hookDropZone.style.display = "block";
+    });
+
+    btnSelectHookFile.addEventListener("click", () => hookFileInput.click());
+    hookFileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) {
+            const f = e.target.files[0];
+            switchMasterStudio("movie");
+            tabUploadMode.click();
+            handleSelectedFile(f);
+        }
+    });
+
+    const tabLofiYt = document.getElementById("tabLofiYt");
+    const tabLofiUpload = document.getElementById("tabLofiUpload");
+    const lofiYtBox = document.getElementById("lofiYtBox");
+    const lofiDropZone = document.getElementById("lofiDropZone");
+    const lofiFileInput = document.getElementById("lofiFileInput");
+    const btnSelectLofiFile = document.getElementById("btnSelectLofiFile");
+    const lofiFileNameLabel = document.getElementById("lofiFileNameLabel");
+    let selectedLofiFile = null;
+
+    tabLofiYt.addEventListener("click", () => {
+        tabLofiYt.classList.add("active");
+        tabLofiUpload.classList.remove("active");
+        lofiYtBox.style.display = "flex";
+        lofiDropZone.style.display = "none";
+        selectedLofiFile = null;
+    });
+
+    tabLofiUpload.addEventListener("click", () => {
+        tabLofiUpload.classList.add("active");
+        tabLofiYt.classList.remove("active");
+        lofiYtBox.style.display = "none";
+        lofiDropZone.style.display = "block";
+    });
+
+    btnSelectLofiFile.addEventListener("click", () => lofiFileInput.click());
+    lofiFileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) {
+            selectedLofiFile = e.target.files[0];
+            lofiFileNameLabel.innerText = `Selected: ${selectedLofiFile.name}`;
+        }
+    });
+
+    // Helper: Safely apply timestamps to trimmer
+    function applyHookTimestamps(startSec, endSec) {
+        trimRange.start = startSec;
+        trimRange.end = endSec;
+        trimStartInput.value = secondsToMMSS(startSec);
+        trimEndInput.value = secondsToMMSS(endSec);
+        sliderStart.value = startSec;
+        sliderEnd.value = endSec;
+        updateClipDurationBadge();
+        logTerminal(`[HOOK] Auto-locked Trimmer to: ${secondsToMMSS(startSec)} ➔ ${secondsToMMSS(endSec)}`);
+    }
+
     // Studio 2: Find Hooks Action
     btnFindHooks.addEventListener("click", async () => {
         const url = hookYtUrlInput.value.trim();
@@ -189,16 +265,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                     ytUrlInput.value = url;
                     fetchYtBtn.click();
 
-                    // Pre-fill timestamps
+                    // Lock hook timestamps once video data is fetched
+                    pendingHookData = {
+                        start: h.start,
+                        end: h.end,
+                        startStr: h.start_str,
+                        endStr: h.end_str
+                    };
+
                     setTimeout(() => {
-                        trimStartInput.value = h.start_str;
-                        trimEndInput.value = h.end_str;
-                        trimRange.start = h.start;
-                        trimRange.end = h.end;
-                        sliderStart.value = h.start;
-                        sliderEnd.value = h.end;
-                        updateClipDurationBadge();
-                    }, 1200);
+                        applyHookTimestamps(h.start, h.end);
+                    }, 800);
                 });
 
                 hookCardsList.appendChild(card);
@@ -328,9 +405,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             trimStartInput.value = "00:00";
             trimEndInput.value = secondsToMMSS(totalSec);
-            updateClipDurationBadge();
-
             ytDetailsCard.style.display = "block";
+
+            // If a viral hook was selected, apply its exact timestamps immediately
+            if (pendingHookData) {
+                applyHookTimestamps(pendingHookData.start, pendingHookData.end);
+                pendingHookData = null;
+            }
+
             updateButtonLabel();
 
         } catch (err) {
