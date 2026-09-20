@@ -34,6 +34,89 @@ async def fetch_youtube_video_info(url: str = Form(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# 0.1 YouTube: Auto-Find Viral Hooks (Studio 2)
+@router.post("/youtube/find-hooks")
+async def api_find_viral_hooks(url: str = Form(...)):
+    if not url or ("youtube.com" not in url and "youtu.be" not in url):
+        raise HTTPException(status_code=400, detail="Please enter a valid YouTube URL")
+    try:
+        from core.hook_finder import find_viral_hooks
+        hooks = find_viral_hooks(url)
+        return {"hooks": hooks, "count": len(hooks)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# 0.2 Music & Lo-Fi Scrambler (Studio 3)
+@router.post("/music/lofi", response_model=JobResponse)
+async def api_process_lofi_music(
+    url: Optional[str] = Form(None),
+    style: str = Form("slowed_reverb"),
+    speed: float = Form(0.88),
+    reverb_level: float = Form(0.5)
+):
+    if not url or ("youtube.com" not in url and "youtu.be" not in url):
+        raise HTTPException(status_code=400, detail="Please provide a valid YouTube song URL")
+
+    job_id = str(uuid.uuid4())
+    output_path = os.path.join(OUTPUT_DIR, f"safe_{job_id}.mp4")
+
+    # Background execution for Lo-Fi synthesis
+    def run_lofi_task():
+        from core.lofi_processor import process_music_lofi
+        try:
+            JOBS_STORE[job_id]["status"] = JobStatus.PROCESSING
+            JOBS_STORE[job_id]["message"] = "Generating Copyright-Free Lo-Fi / Slowed Track..."
+            JOBS_STORE[job_id]["progress"] = 20.0
+
+            process_music_lofi(
+                input_source=url,
+                output_path=output_path,
+                is_youtube=True,
+                style=style,
+                speed=speed,
+                reverb_level=reverb_level,
+                progress_callback=lambda p, m: (
+                    JOBS_STORE[job_id].update({"progress": p, "message": m})
+                )
+            )
+
+            JOBS_STORE[job_id]["status"] = JobStatus.COMPLETED
+            JOBS_STORE[job_id]["progress"] = 100.0
+            JOBS_STORE[job_id]["message"] = "Copyright-Free Lo-Fi Track Ready!"
+            JOBS_STORE[job_id]["download_url"] = f"/api/download/{job_id}"
+        except Exception as err:
+            JOBS_STORE[job_id]["status"] = JobStatus.FAILED
+            JOBS_STORE[job_id]["error"] = str(err)
+            JOBS_STORE[job_id]["message"] = f"Lo-Fi generation failed: {str(err)}"
+
+    JOBS_STORE[job_id] = {
+        "job_id": job_id,
+        "input_path": url,
+        "output_path": output_path,
+        "preset": "lofi_scrambler",
+        "mode": "lofi",
+        "status": JobStatus.QUEUED,
+        "progress": 0.0,
+        "message": "Enqueued Lo-Fi audio scrambling pipeline...",
+        "error": None,
+        "download_url": None,
+        "original_meta": None,
+        "transformed_meta": None,
+        "elapsed_seconds": None
+    }
+
+    import threading
+    threading.Thread(target=run_lofi_task, daemon=True).start()
+
+    return JobResponse(
+        job_id=job_id,
+        filename=f"LoFi_Track_{job_id[:6]}.mp4",
+        status=JobStatus.QUEUED,
+        progress=0.0,
+        message="Enqueued Lo-Fi music transformation pipeline...",
+        preset="lofi_scrambler"
+    )
+
 # 0.5 YouTube: Process Trimmed Video to Copyright-Free
 @router.post("/youtube/process", response_model=JobResponse)
 async def process_youtube_video(

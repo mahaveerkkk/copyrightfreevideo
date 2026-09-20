@@ -95,6 +95,174 @@ document.addEventListener("DOMContentLoaded", async () => {
         clipDurationLabel.innerText = `Selected: ${secondsToMMSS(len)} (${Math.round(len)}s)`;
     }
 
+    // Master 3-Studio Tabs & Containers
+    const btnStudioMovie = document.getElementById("btnStudioMovie");
+    const btnStudioHook = document.getElementById("btnStudioHook");
+    const btnStudioLofi = document.getElementById("btnStudioLofi");
+    const studioHookCard = document.getElementById("studioHookCard");
+    const studioLofiCard = document.getElementById("studioLofiCard");
+
+    // Studio 2: Hook Finder Elements
+    const hookYtUrlInput = document.getElementById("hookYtUrlInput");
+    const btnFindHooks = document.getElementById("btnFindHooks");
+    const hookSpinner = document.getElementById("hookSpinner");
+    const hookBtnText = document.getElementById("hookBtnText");
+    const hookResultsContainer = document.getElementById("hookResultsContainer");
+    const hookCardsList = document.getElementById("hookCardsList");
+
+    // Studio 3: LoFi Elements
+    const lofiYtUrlInput = document.getElementById("lofiYtUrlInput");
+    const btnGenerateLofi = document.getElementById("btnGenerateLofi");
+    let selectedLofiStyle = "slowed_reverb";
+
+    document.querySelectorAll(".lofi-style-card").forEach(card => {
+        card.addEventListener("click", () => {
+            document.querySelectorAll(".lofi-style-card").forEach(c => c.classList.remove("active"));
+            card.classList.add("active");
+            selectedLofiStyle = card.dataset.style;
+        });
+    });
+
+    // Switch between the 3 Master Studios
+    function switchMasterStudio(target) {
+        btnStudioMovie.classList.toggle("active", target === "movie");
+        btnStudioHook.classList.toggle("active", target === "hook");
+        btnStudioLofi.classList.toggle("active", target === "lofi");
+
+        configCard.style.display = target === "movie" ? "block" : "none";
+        studioHookCard.style.display = target === "hook" ? "block" : "none";
+        studioLofiCard.style.display = target === "lofi" ? "block" : "none";
+    }
+
+    btnStudioMovie.addEventListener("click", () => switchMasterStudio("movie"));
+    btnStudioHook.addEventListener("click", () => switchMasterStudio("hook"));
+    btnStudioLofi.addEventListener("click", () => switchMasterStudio("lofi"));
+
+    // Studio 2: Find Hooks Action
+    btnFindHooks.addEventListener("click", async () => {
+        const url = hookYtUrlInput.value.trim();
+        if (!url) {
+            alert("Please paste a YouTube video or podcast URL");
+            return;
+        }
+
+        hookSpinner.style.display = "inline-block";
+        hookBtnText.innerText = "Analyzing Dialogue & Energy...";
+        btnFindHooks.disabled = true;
+
+        try {
+            const form = new FormData();
+            form.append("url", url);
+            const res = await fetch("/api/youtube/find-hooks", {
+                method: "POST",
+                body: form
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "Failed to find viral hooks");
+            }
+
+            const data = await res.json();
+            const hooks = data.hooks || [];
+
+            hookCardsList.innerHTML = "";
+            hooks.forEach((h, idx) => {
+                const card = document.createElement("div");
+                card.className = "hook-card";
+                card.innerHTML = `
+                    <div class="hook-info-left">
+                        <div class="hook-card-title">${h.title}</div>
+                        <div class="hook-card-meta">
+                            <span>⏱️ ${h.start_str} ➔ ${h.end_str} (${h.duration_sec}s)</span>
+                            <span class="hook-score-badge">🔥 Score: ${h.score}%</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-use-hook">Use in Movie Shield</button>
+                `;
+
+                // When user clicks "Use in Movie Shield", transfer to Studio 1 Trimmer!
+                card.querySelector(".btn-use-hook").addEventListener("click", () => {
+                    switchMasterStudio("movie");
+                    currentInputMode = "youtube";
+                    tabYoutubeMode.click();
+                    ytUrlInput.value = url;
+                    fetchYtBtn.click();
+
+                    // Pre-fill timestamps
+                    setTimeout(() => {
+                        trimStartInput.value = h.start_str;
+                        trimEndInput.value = h.end_str;
+                        trimRange.start = h.start;
+                        trimRange.end = h.end;
+                        sliderStart.value = h.start;
+                        sliderEnd.value = h.end;
+                        updateClipDurationBadge();
+                    }, 1200);
+                });
+
+                hookCardsList.appendChild(card);
+            });
+
+            hookResultsContainer.style.display = "block";
+
+        } catch (err) {
+            alert(`Hook Finder Error: ${err.message}`);
+        } finally {
+            hookSpinner.style.display = "none";
+            hookBtnText.innerText = "🎯 Find Viral Hooks";
+            btnFindHooks.disabled = false;
+        }
+    });
+
+    // Studio 3: Generate Lo-Fi Action
+    btnGenerateLofi.addEventListener("click", async () => {
+        const url = lofiYtUrlInput.value.trim();
+        if (!url) {
+            alert("Please paste a YouTube song URL");
+            return;
+        }
+
+        configCard.style.display = "none";
+        studioLofiCard.style.display = "none";
+        progressCard.style.display = "block";
+        processingView.style.display = "block";
+        completedView.style.display = "none";
+
+        progressBar.style.width = "0%";
+        progressPercentLabel.innerText = "0%";
+        terminalOutput.innerHTML = "";
+
+        try {
+            logTerminal(`[INIT] Audio Scrambler: ${url}`);
+            logTerminal(`[STYLE] Generating ${selectedLofiStyle.replace('_', ' ')} audio matrix...`);
+
+            const form = new FormData();
+            form.append("url", url);
+            form.append("style", selectedLofiStyle);
+            form.append("speed", "0.88");
+            form.append("reverb_level", "0.5");
+
+            const res = await fetch("/api/music/lofi", {
+                method: "POST",
+                body: form
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "Lo-Fi generation failed");
+            }
+
+            const data = await res.json();
+            subscribeJobStream(data.job_id);
+
+        } catch (err) {
+            alert(`Music Error: ${err.message}`);
+            switchMasterStudio("lofi");
+            progressCard.style.display = "none";
+        }
+    });
+
     // Tab Switching: Local File vs YouTube
     tabUploadMode.addEventListener("click", () => {
         currentInputMode = "upload";

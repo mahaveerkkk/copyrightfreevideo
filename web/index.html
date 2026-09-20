@@ -35,14 +35,23 @@
     <!-- Main Content Container -->
     <main class="app-container">
         
-        <!-- Hero Section -->
-        <section class="hero-section">
-            <div class="hero-chip">🛡️ Zero-Copyright Engine</div>
-            <h2 class="hero-title">Make Any Video <span class="gradient-text">100% Safe</span></h2>
-            <p class="hero-desc">Bypass YouTube Content ID & FB Rights Manager automatically using pHash scrambling, vocal extraction, and micro-shift DSP.</p>
-        </section>
+        <!-- Master 3-Studio Navigation Bar -->
+        <div class="master-studio-nav">
+            <button type="button" class="studio-nav-btn active" id="btnStudioMovie">
+                <span class="studio-icon">🎬</span>
+                <span class="studio-title">Movie & Video Shield</span>
+            </button>
+            <button type="button" class="studio-nav-btn" id="btnStudioHook">
+                <span class="studio-icon">🔍</span>
+                <span class="studio-title">AI Viral Hook Finder</span>
+            </button>
+            <button type="button" class="studio-nav-btn" id="btnStudioLofi">
+                <span class="studio-icon">🎵</span>
+                <span class="studio-title">Music & Lo-Fi Scrambler</span>
+            </button>
+        </div>
 
-        <!-- Main Configuration Card -->
+        <!-- Main Configuration Card (Studio 1: Movie & Video Shield) -->
         <div class="glass-card" id="configCard">
             
             <!-- Input Source Tabs -->
@@ -254,6 +263,71 @@
                 <span id="startBtnLabel">Select a Video to Begin</span>
             </button>
 
+        </div>
+
+        <!-- Studio 2 Card: AI Viral Hook Finder -->
+        <div class="glass-card" id="studioHookCard" style="display: none;">
+            <div class="studio-header-banner">
+                <div class="banner-badge">🔥 AI HOOK DETECTION</div>
+                <h3 class="banner-title">Auto-Find 30s Viral Moments</h3>
+                <p class="banner-sub">Lambi movie ya podcast ka YouTube link daalo. AI automatically best viral scenes dhoondh kar cut karne ke liye timestamps de dega!</p>
+            </div>
+
+            <div class="yt-input-group">
+                <input type="url" id="hookYtUrlInput" class="yt-url-field" placeholder="Paste YouTube Video / Podcast URL..." autocomplete="off">
+                <button type="button" class="btn-fetch-yt" id="btnFindHooks">
+                    <span id="hookSpinner" class="btn-spinner" style="display: none;"></span>
+                    <span id="hookBtnText">🎯 Find Viral Hooks</span>
+                </button>
+            </div>
+
+            <!-- Hook Results Area -->
+            <div id="hookResultsContainer" class="hook-results-list" style="display: none;">
+                <div class="hook-results-header">
+                    <span>✨ Top Viral Hooks Detected:</span>
+                </div>
+                <div id="hookCardsList" class="hook-cards-grid">
+                    <!-- Dynamically injected -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Studio 3 Card: Music & Lo-Fi Scrambler -->
+        <div class="glass-card" id="studioLofiCard" style="display: none;">
+            <div class="studio-header-banner">
+                <div class="banner-badge">🎵 AUDIO SCRAMBLER</div>
+                <h3 class="banner-title">Make Any Song 100% Copyright-Free</h3>
+                <p class="banner-sub">YouTube song ka link dalo. Ye automated audio fingerprint ko tod kar Slowed + Reverb ya Lo-Fi Chill me convert karega!</p>
+            </div>
+
+            <div class="yt-input-group">
+                <input type="url" id="lofiYtUrlInput" class="yt-url-field" placeholder="Paste YouTube Song / Music Video URL..." autocomplete="off">
+            </div>
+
+            <!-- Style Selector -->
+            <div class="lofi-style-grid">
+                <div class="lofi-style-card active" data-style="slowed_reverb">
+                    <div class="style-icon">🌌</div>
+                    <div class="style-name">Slowed + Reverb</div>
+                    <div class="style-desc">0.88x slow tempo, deep ambient reverb, and bass boost.</div>
+                </div>
+                <div class="lofi-style-card" data-style="lofi_chill">
+                    <div class="style-icon">☕</div>
+                    <div class="style-name">Lo-Fi Chill Beats</div>
+                    <div class="style-desc">Acoustic warm filter, lowpass cut, and vinyl atmosphere.</div>
+                </div>
+                <div class="lofi-style-card" data-style="eight_d">
+                    <div class="style-icon">🎧</div>
+                    <div class="style-name">8D Spatial Audio</div>
+                    <div class="style-desc">Circular 360-degree ear-to-ear headphone panning.</div>
+                </div>
+            </div>
+
+            <!-- LoFi Action Button -->
+            <button type="button" class="btn-start-action" id="btnGenerateLofi" style="margin-top: 1rem;">
+                <span class="btn-icon">🎵</span>
+                <span>Generate Copyright-Free Track</span>
+            </button>
         </div>
 
         <!-- Processing & Result Card -->
