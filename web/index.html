@@ -138,21 +138,21 @@
                 </div>
             </div>
 
-            <!-- Engine Mode Selector -->
+            <!-- 1. Processing Style: Simple 1-Click vs Advanced -->
             <div class="section-label">
                 <span class="step-num">1</span>
-                <span>Select Processing Engine</span>
+                <span>Choose Protection Style</span>
             </div>
-
+            
             <div class="mode-grid">
-                <!-- Turbo Mode -->
+                <!-- Movie & Clip Mode (Default) -->
                 <div class="mode-card active" id="modeTurboCard" data-mode="turbo">
                     <div class="mode-top">
-                        <span class="mode-icon">⚡</span>
-                        <span class="mode-tag tag-turbo">TURBO • 5s</span>
+                        <span class="mode-icon">🎬</span>
+                        <span class="mode-tag tag-turbo">RECOMMENDED • FAST</span>
                     </div>
-                    <div class="mode-title">Turbo DSP Shield</div>
-                    <div class="mode-desc">Micro-pitch shift, dynamic crop, film grain & EXIF purge. Ultra-fast and lightweight.</div>
+                    <div class="mode-title">Movie & Scene Stealth (Inaudible & Invisible)</div>
+                    <div class="mode-desc">Video bilkul original lagegi, koi ajeeb filter ya awaaz kharab nahi hogi. YouTube bot ko bypass karne ke liye invisible anti-detection layers lagata hai.</div>
                 </div>
 
                 <!-- Deep Studio Mode -->
@@ -161,32 +161,32 @@
                         <span class="mode-icon">🧠</span>
                         <span class="mode-tag tag-deep">AI DEEP STUDIO</span>
                     </div>
-                    <div class="mode-title">AI Stem & Canvas</div>
-                    <div class="mode-desc">Isolates dialogues, mutes copyrighted music, layers clean BGM & 9:16 Shorts canvas.</div>
+                    <div class="mode-title">Full Music Replacement & 9:16 Shorts</div>
+                    <div class="mode-desc">Background me chal rahe gaane ko hata kar safe music lagata hai ya video ko 9:16 Shorts format me transform karta hai.</div>
                 </div>
             </div>
 
-            <!-- AI Deep Controls (Shown when AI Mode is active) -->
+            <!-- AI Deep Controls (Shown only when AI Mode is active) -->
             <div class="ai-controls-box" id="aiConfigPanel" style="display: none;">
                 <div class="ai-header">
                     <span class="ai-header-dot"></span>
-                    <span>AI Deep Studio Parameters</span>
+                    <span>AI Deep Music & Layout Settings</span>
                 </div>
                 
                 <label class="custom-toggle">
                     <input type="checkbox" id="vocalSwapToggle" checked>
                     <div class="toggle-slider"></div>
                     <div class="toggle-text">
-                        <strong>AI Vocal Isolation & BGM Swap</strong>
-                        <span>Keeps voices crisp, replaces background song completely</span>
+                        <strong>AI Dialogue Isolation & Music Swap</strong>
+                        <span>Original background music mute kar dega, par actors/speakers ki aawaz bilkul clear bachi rahegi.</span>
                     </div>
                 </label>
 
                 <div class="bgm-selector-group">
-                    <label class="bgm-label" for="bgmChoice">Replacement Clean BGM:</label>
+                    <label class="bgm-label" for="bgmChoice">Naya Copyright-Free Music Chunein:</label>
                     <select id="bgmChoice" class="styled-select">
-                        <option value="lofi_chill">🎵 Lo-Fi Chill (Relaxing & Peaceful)</option>
-                        <option value="cinematic_tension">🎬 Cinematic Tension (Suspense Drone)</option>
+                        <option value="lofi_chill">🎵 Lo-Fi Chill (Acoustic Beats)</option>
+                        <option value="cinematic_tension">🎬 Cinematic Tension (Suspense Tone)</option>
                     </select>
                 </div>
 
@@ -195,66 +195,57 @@
                     <div class="toggle-slider"></div>
                     <div class="toggle-text">
                         <strong>9:16 Viral Shorts / Reels Canvas</strong>
-                        <span>Adds high-retention gameplay bottom canvas for monetization</span>
+                        <span>Video ko 9:16 vertical bana kar niche gameplay/satisfying video jod dega (Shorts monetization ke liye).</span>
                     </div>
                 </label>
             </div>
 
-            <!-- 2. One-Tap Defense Arsenal (Modular Tool Toggles) -->
+            <!-- 2. Active Defense Arsenal (With Simple Hindi Explanations) -->
             <div class="section-label" style="margin-top: 1.4rem;">
                 <span class="step-num">2</span>
-                <span>Active Defense Arsenal (Tap to Toggle)</span>
+                <span>Active Protection Tools (Tap to Turn ON / OFF)</span>
             </div>
+            
             <div class="arsenal-grid">
-                <!-- Tool 1: Mirror Flip -->
-                <div class="arsenal-card active" id="toolMirrorCard">
-                    <div class="arsenal-header">
-                        <span class="arsenal-emoji">🪞</span>
-                        <span class="arsenal-status on">ON</span>
-                    </div>
-                    <div class="arsenal-name">Mirror Flip</div>
-                    <div class="arsenal-desc">Horizontally mirrors frames to destroy visual pHash matching.</div>
-                </div>
-
-                <!-- Tool 2: PiP Border Frame -->
-                <div class="arsenal-card active" id="toolBorderCard">
-                    <div class="arsenal-header">
-                        <span class="arsenal-emoji">🎞️</span>
-                        <span class="arsenal-status on">ON</span>
-                    </div>
-                    <div class="arsenal-name">PiP Border Frame</div>
-                    <div class="arsenal-desc">3% cinematic frame altering outer edge bounding coordinates.</div>
-                </div>
-
-                <!-- Tool 3: Micro-Speed Modulation -->
+                <!-- Tool 1: Micro Speed -->
                 <div class="arsenal-card active" id="toolSpeedCard">
                     <div class="arsenal-header">
                         <span class="arsenal-emoji">⏩</span>
-                        <span class="arsenal-status on">ON</span>
+                        <span class="arsenal-status on">ACTIVE</span>
                     </div>
-                    <div class="arsenal-name">Speed Modulation</div>
-                    <div class="arsenal-desc">Micro tempo shift scrambles temporal audio-video constellation.</div>
+                    <div class="arsenal-name">Micro Speed Modulation</div>
+                    <div class="arsenal-desc"><strong>Kisliye:</strong> Video ko 2% speed shift karta hai. Insaan ko bilkul pata nahi chalta, par YouTube ka audio-video timeline match 100% toot jata hai.</div>
                 </div>
 
-                <!-- Tool 4: Stereo Phase Widener & Pitch -->
+                <!-- Tool 2: Audio Pitch & Stereo Widen -->
                 <div class="arsenal-card active" id="toolAudioCard">
                     <div class="arsenal-header">
                         <span class="arsenal-emoji">🔊</span>
-                        <span class="arsenal-status on">ON</span>
+                        <span class="arsenal-status on">ACTIVE</span>
                     </div>
-                    <div class="arsenal-name">Acoustic Pitch</div>
-                    <div class="arsenal-desc">Harmonic pitch shift & 120° stereo decorrelation.</div>
+                    <div class="arsenal-name">Acoustic Pitch & Frequency Shift</div>
+                    <div class="arsenal-desc"><strong>Kisliye:</strong> Audio ki frequency aur stereo ko halka sa shift karta hai taaki automated copyright bot aawaz pehchan na sake.</div>
                 </div>
-            </div>
 
-            <!-- Preset Cards -->
-            <div class="section-label" style="margin-top: 1.4rem;">
-                <span class="step-num">3</span>
-                <span>Select Target Platform Preset</span>
-            </div>
-            
-            <div class="presets-grid" id="presetsContainer">
-                <!-- Dynamically filled by app.js -->
+                <!-- Tool 3: Mirror Flip -->
+                <div class="arsenal-card" id="toolMirrorCard">
+                    <div class="arsenal-header">
+                        <span class="arsenal-emoji">🪞</span>
+                        <span class="arsenal-status off">OPTIONAL</span>
+                    </div>
+                    <div class="arsenal-name">Horizontal Mirror (Left-Right Ulta)</div>
+                    <div class="arsenal-desc"><strong>Kisliye:</strong> Video ko mirror karta hai. Movies scenes ke liye bohot effective hai. Agar video me padhne wala text hai to ise OFF rakhein.</div>
+                </div>
+
+                <!-- Tool 4: PiP Border Frame -->
+                <div class="arsenal-card" id="toolBorderCard">
+                    <div class="arsenal-header">
+                        <span class="arsenal-emoji">🎞️</span>
+                        <span class="arsenal-status off">OPTIONAL</span>
+                    </div>
+                    <div class="arsenal-name">Cinematic Edge Border</div>
+                    <div class="arsenal-desc"><strong>Kisliye:</strong> Video ke charo taraf 2% black border lagata hai taaki video ka exact frame size mismatch ho jaye. Movie clips me cinematic lagta hai.</div>
+                </div>
             </div>
 
             <!-- Action Button -->

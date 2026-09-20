@@ -339,10 +339,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const toolAudioCard = document.getElementById("toolAudioCard");
 
     const arsenalState = {
-        mirror_flip: true,
-        border_frame: true,
-        speed_ramp: true,
-        audio_pitch: true
+        mirror_flip: false,  // Optional: User can tap ON if needed
+        border_frame: false, // Optional: User can tap ON if needed
+        speed_ramp: true,    // Core Stealth: Inaudible & invisible 2% timeline scramble
+        audio_pitch: true    // Core Stealth: Inaudible acoustic phase shift
     };
 
     function setupArsenalToggle(card, key) {
@@ -352,7 +352,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             card.classList.toggle("active", arsenalState[key]);
             const statusEl = card.querySelector(".arsenal-status");
             if (statusEl) {
-                statusEl.innerText = arsenalState[key] ? "ON" : "OFF";
+                statusEl.innerText = arsenalState[key] ? "ACTIVE" : "OPTIONAL";
                 statusEl.className = `arsenal-status ${arsenalState[key] ? "on" : "off"}`;
             }
         });
