@@ -11,7 +11,8 @@ import aiofiles
 from api.config import INPUT_DIR, OUTPUT_DIR, TEMP_DIR, ALLOWED_EXTENSIONS
 from api.models import JobResponse, JobStatus
 from core.presets import PRESETS
-from workers.manager import submit_job, JOBS_STORE
+from core.youtube_service import get_youtube_info
+from workers.manager import submit_job, submit_youtube_job, JOBS_STORE
 
 router = APIRouter()
 
@@ -21,6 +22,67 @@ os.makedirs(CHUNKS_BASE_DIR, exist_ok=True)
 @router.get("/presets")
 async def get_presets():
     return list(PRESETS.values())
+
+# 0. YouTube: Fetch Video Info (Title, Thumbnail, Duration)
+@router.post("/youtube/info")
+async def fetch_youtube_video_info(url: str = Form(...)):
+    if not url or ("youtube.com" not in url and "youtu.be" not in url):
+        raise HTTPException(status_code=400, detail="Please enter a valid YouTube video or Shorts link")
+    try:
+        info = get_youtube_info(url)
+        return info
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# 0.5 YouTube: Process Trimmed Video to Copyright-Free
+@router.post("/youtube/process", response_model=JobResponse)
+async def process_youtube_video(
+    url: str = Form(...),
+    start_sec: float = Form(0.0),
+    end_sec: Optional[float] = Form(None),
+    preset: str = Form("stealth_deep"),
+    mode: str = Form("turbo"),
+    custom_settings: Optional[str] = Form(None)
+):
+    if not url or ("youtube.com" not in url and "youtu.be" not in url):
+        raise HTTPException(status_code=400, detail="Invalid YouTube URL")
+
+    if preset not in PRESETS:
+        preset = "stealth_deep"
+    if mode not in ["turbo", "ai_deep"]:
+        mode = "turbo"
+
+    custom_overrides = None
+    if custom_settings:
+        try:
+            custom_overrides = json.loads(custom_settings)
+        except Exception:
+            custom_overrides = None
+
+    job_id = str(uuid.uuid4())
+    input_path = os.path.join(INPUT_DIR, f"yt_{job_id}.mp4")
+    output_path = os.path.join(OUTPUT_DIR, f"safe_{job_id}.mp4")
+
+    submit_youtube_job(
+        job_id=job_id,
+        youtube_url=url,
+        input_path=input_path,
+        output_path=output_path,
+        start_sec=start_sec,
+        end_sec=end_sec,
+        preset_id=preset,
+        mode=mode,
+        custom_overrides=custom_overrides
+    )
+
+    return JobResponse(
+        job_id=job_id,
+        filename=f"YouTube_{job_id[:6]}.mp4",
+        status=JobStatus.QUEUED,
+        progress=0.0,
+        message="Connecting to YouTube stream & queuing transformation...",
+        preset=preset
+    )
 
 # 1. Chunked Upload: Initialize
 @router.post("/upload/init")

@@ -42,10 +42,190 @@ document.addEventListener("DOMContentLoaded", async () => {
     const downloadSafeBtn = document.getElementById("downloadSafeBtn");
     const restartBtn = document.getElementById("restartBtn");
 
+    // Input Source Tabs & YouTube Elements
+    const tabUploadMode = document.getElementById("tabUploadMode");
+    const tabYoutubeMode = document.getElementById("tabYoutubeMode");
+    const youtubeZone = document.getElementById("youtubeZone");
+    const ytUrlInput = document.getElementById("ytUrlInput");
+    const fetchYtBtn = document.getElementById("fetchYtBtn");
+    const fetchBtnSpinner = document.getElementById("fetchBtnSpinner");
+    const fetchBtnText = document.getElementById("fetchBtnText");
+
+    const ytDetailsCard = document.getElementById("ytDetailsCard");
+    const ytThumbImg = document.getElementById("ytThumbImg");
+    const ytTitleText = document.getElementById("ytTitleText");
+    const ytAuthorText = document.getElementById("ytAuthorText");
+    const ytDurationBadge = document.getElementById("ytDurationBadge");
+
+    const clipDurationLabel = document.getElementById("clipDurationLabel");
+    const trimStartInput = document.getElementById("trimStartInput");
+    const trimEndInput = document.getElementById("trimEndInput");
+    const btnFullVideo = document.getElementById("btnFullVideo");
+    const sliderStart = document.getElementById("sliderStart");
+    const sliderEnd = document.getElementById("sliderEnd");
+
+    let currentInputMode = "upload"; // 'upload' or 'youtube'
+    let ytVideoData = null; // { title, duration, thumbnail, author, url }
+    let trimRange = { start: 0, end: 0 };
+
     let selectedFile = null;
     let activeMode = "turbo";
     let selectedPreset = "stealth_deep";
     let activeEventSource = null;
+
+    // Helper functions for time formatting
+    function secondsToMMSS(sec) {
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function mmssToSeconds(str) {
+        const parts = str.trim().split(":");
+        if (parts.length === 2) {
+            const m = parseFloat(parts[0]) || 0;
+            const s = parseFloat(parts[1]) || 0;
+            return Math.max(0, m * 60 + s);
+        }
+        return parseFloat(str) || 0;
+    }
+
+    function updateClipDurationBadge() {
+        const len = Math.max(0, trimRange.end - trimRange.start);
+        clipDurationLabel.innerText = `Selected: ${secondsToMMSS(len)} (${Math.round(len)}s)`;
+    }
+
+    // Tab Switching: Local File vs YouTube
+    tabUploadMode.addEventListener("click", () => {
+        currentInputMode = "upload";
+        tabUploadMode.classList.add("active");
+        tabYoutubeMode.classList.remove("active");
+        dropZone.style.display = "block";
+        youtubeZone.style.display = "none";
+        updateButtonLabel();
+    });
+
+    tabYoutubeMode.addEventListener("click", () => {
+        currentInputMode = "youtube";
+        tabYoutubeMode.classList.add("active");
+        tabUploadMode.classList.remove("active");
+        dropZone.style.display = "none";
+        youtubeZone.style.display = "block";
+        updateButtonLabel();
+    });
+
+    // Fetch YouTube Video Info
+    fetchYtBtn.addEventListener("click", async () => {
+        const url = ytUrlInput.value.trim();
+        if (!url) {
+            alert("Please paste a valid YouTube video or Shorts link");
+            return;
+        }
+
+        fetchBtnSpinner.style.display = "inline-block";
+        fetchBtnText.innerText = "Fetching...";
+        fetchYtBtn.disabled = true;
+
+        try {
+            const form = new FormData();
+            form.append("url", url);
+            const res = await fetch("/api/youtube/info", {
+                method: "POST",
+                body: form
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "Failed to fetch YouTube video info");
+            }
+
+            const data = await res.json();
+            ytVideoData = { ...data, url: url };
+
+            // Update UI
+            ytThumbImg.src = data.thumbnail || "";
+            ytTitleText.innerText = data.title;
+            ytAuthorText.innerText = data.channel;
+            ytDurationBadge.innerText = data.duration_str || secondsToMMSS(data.duration);
+
+            // Initialize Trimmer
+            const totalSec = Math.max(5, Math.round(data.duration));
+            trimRange.start = 0;
+            trimRange.end = totalSec;
+
+            sliderStart.max = totalSec;
+            sliderEnd.max = totalSec;
+            sliderStart.value = 0;
+            sliderEnd.value = totalSec;
+
+            trimStartInput.value = "00:00";
+            trimEndInput.value = secondsToMMSS(totalSec);
+            updateClipDurationBadge();
+
+            ytDetailsCard.style.display = "block";
+            updateButtonLabel();
+
+        } catch (err) {
+            alert(`YouTube Error: ${err.message}`);
+        } finally {
+            fetchBtnSpinner.style.display = "none";
+            fetchBtnText.innerText = "Fetch Video";
+            fetchYtBtn.disabled = false;
+        }
+    });
+
+    // Trimmer Sliders & Inputs sync
+    sliderStart.addEventListener("input", () => {
+        let val = parseFloat(sliderStart.value);
+        if (val >= trimRange.end) {
+            val = Math.max(0, trimRange.end - 1);
+            sliderStart.value = val;
+        }
+        trimRange.start = val;
+        trimStartInput.value = secondsToMMSS(val);
+        updateClipDurationBadge();
+    });
+
+    sliderEnd.addEventListener("input", () => {
+        let val = parseFloat(sliderEnd.value);
+        if (val <= trimRange.start) {
+            val = Math.min(parseFloat(sliderEnd.max), trimRange.start + 1);
+            sliderEnd.value = val;
+        }
+        trimRange.end = val;
+        trimEndInput.value = secondsToMMSS(val);
+        updateClipDurationBadge();
+    });
+
+    trimStartInput.addEventListener("change", () => {
+        let sec = mmssToSeconds(trimStartInput.value);
+        sec = Math.min(sec, trimRange.end - 1);
+        trimRange.start = Math.max(0, sec);
+        sliderStart.value = trimRange.start;
+        trimStartInput.value = secondsToMMSS(trimRange.start);
+        updateClipDurationBadge();
+    });
+
+    trimEndInput.addEventListener("change", () => {
+        let sec = mmssToSeconds(trimEndInput.value);
+        const maxSec = parseFloat(sliderEnd.max);
+        sec = Math.min(maxSec, Math.max(trimRange.start + 1, sec));
+        trimRange.end = sec;
+        sliderEnd.value = trimRange.end;
+        trimEndInput.value = secondsToMMSS(trimRange.end);
+        updateClipDurationBadge();
+    });
+
+    btnFullVideo.addEventListener("click", () => {
+        if (!ytVideoData) return;
+        trimRange.start = 0;
+        trimRange.end = ytVideoData.duration;
+        sliderStart.value = 0;
+        sliderEnd.value = ytVideoData.duration;
+        trimStartInput.value = "00:00";
+        trimEndInput.value = secondsToMMSS(ytVideoData.duration);
+        updateClipDurationBadge();
+    });
 
     // 1. Load Presets
     try {
@@ -90,8 +270,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     function updateButtonLabel() {
-        if (!selectedFile) {
-            startBtnLabel.innerText = "Select a Video to Begin";
+        const hasMedia = (currentInputMode === "upload" && selectedFile) || (currentInputMode === "youtube" && ytVideoData);
+        if (!hasMedia) {
+            startBtnLabel.innerText = currentInputMode === "upload" ? "Select a Video to Begin" : "Fetch a YouTube Video to Begin";
             startBtn.disabled = true;
         } else {
             startBtnLabel.innerText = activeMode === "turbo" ? "⚡ Remove Copyright (Turbo 5s)" : "🧠 Run AI Deep Studio Transformation";
@@ -298,7 +479,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 5. Start Process Button
     startBtn.addEventListener("click", async () => {
-        if (!selectedFile) return;
+        const hasMedia = (currentInputMode === "upload" && selectedFile) || (currentInputMode === "youtube" && ytVideoData);
+        if (!hasMedia) return;
 
         configCard.style.display = "none";
         progressCard.style.display = "block";
@@ -310,10 +492,58 @@ document.addEventListener("DOMContentLoaded", async () => {
         terminalOutput.innerHTML = "";
 
         try {
-            const jobData = await uploadInChunks(selectedFile);
-            const jobId = jobData.job_id;
-            logTerminal(`[ENQUEUED] Job ID: ${jobId}`);
+            let jobId = null;
 
+            if (currentInputMode === "youtube") {
+                mainStatusText.innerText = "Connecting to YouTube stream...";
+                subStatusText.innerText = `Trimming: ${secondsToMMSS(trimRange.start)} ➔ ${secondsToMMSS(trimRange.end)}`;
+                logTerminal(`[INIT] YouTube URL: ${ytVideoData.url}`);
+                logTerminal(`[TRIM] Start: ${trimRange.start}s, End: ${trimRange.end}s`);
+
+                const customSettings = {
+                    video: {
+                        mirror_flip: arsenalState.mirror_flip,
+                        border_frame: arsenalState.border_frame
+                    },
+                    audio: {
+                        speed_ramp: arsenalState.speed_ramp,
+                        pitch_semitones: arsenalState.audio_pitch ? 0.5 : 0.0,
+                        stereo_widen: arsenalState.audio_pitch
+                    },
+                    ai_options: {
+                        vocal_swap: vocalSwapToggle.checked,
+                        split_screen: splitScreenToggle.checked,
+                        bgm_type: bgmChoice.value
+                    }
+                };
+
+                const ytForm = new FormData();
+                ytForm.append("url", ytVideoData.url);
+                ytForm.append("start_sec", trimRange.start);
+                ytForm.append("end_sec", trimRange.end);
+                ytForm.append("preset", selectedPreset);
+                ytForm.append("mode", activeMode);
+                ytForm.append("custom_settings", JSON.stringify(customSettings));
+
+                const ytRes = await fetch("/api/youtube/process", {
+                    method: "POST",
+                    body: ytForm
+                });
+
+                if (!ytRes.ok) {
+                    const err = await ytRes.json();
+                    throw new Error(err.detail || "YouTube transformation failed");
+                }
+
+                const jobData = await ytRes.json();
+                jobId = jobData.job_id;
+
+            } else {
+                const jobData = await uploadInChunks(selectedFile);
+                jobId = jobData.job_id;
+            }
+
+            logTerminal(`[ENQUEUED] Job ID: ${jobId}`);
             mainStatusText.innerText = "Running Anti-Copyright Engine...";
             subStatusText.innerText = "Disrupting pHash & acoustic fingerprints...";
 
@@ -403,7 +633,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
 
             downloadSafeBtn.href = downloadUrl;
-            downloadSafeBtn.setAttribute("download", `safe_${selectedFile ? selectedFile.name : 'video.mp4'}`);
+            let safeDownloadName = 'safe_video.mp4';
+            if (currentInputMode === "youtube" && ytVideoData) {
+                const cleanTitle = (ytVideoData.title || 'youtube_video').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
+                safeDownloadName = `safe_${cleanTitle}.mp4`;
+            } else if (selectedFile) {
+                safeDownloadName = `safe_${selectedFile.name}`;
+            }
+            downloadSafeBtn.setAttribute("download", safeDownloadName);
         }, 500);
     }
 
@@ -444,6 +681,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         sourceVideoPlayer.src = "";
         finalVideoPlayer.pause();
         finalVideoPlayer.src = "";
+        
+        // Reset YouTube
+        ytVideoData = null;
+        ytUrlInput.value = "";
+        ytDetailsCard.style.display = "none";
         updateButtonLabel();
     });
 });

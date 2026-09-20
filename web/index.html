@@ -45,7 +45,13 @@
         <!-- Main Configuration Card -->
         <div class="glass-card" id="configCard">
             
-            <!-- Video Upload Box -->
+            <!-- Input Source Tabs -->
+            <div class="source-nav-tabs">
+                <button type="button" class="source-tab active" id="tabUploadMode">📁 Upload Video File</button>
+                <button type="button" class="source-tab" id="tabYoutubeMode">🔴 Paste YouTube Link</button>
+            </div>
+
+            <!-- 1A. Video Upload Box (Local File) -->
             <div class="dropzone-box" id="dropZone">
                 <input type="file" id="fileInput" accept="video/*" hidden>
                 
@@ -76,6 +82,58 @@
                             <span class="file-chip-size" id="fileSizeLabel">0 MB</span>
                         </div>
                         <button type="button" class="btn-change" id="changeFileBtn">Change</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1B. YouTube Link & Trimmer Box -->
+            <div class="youtube-box" id="youtubeZone" style="display: none;">
+                <div class="yt-input-group">
+                    <input type="url" id="ytUrlInput" class="yt-url-field" placeholder="Paste YouTube Video or Shorts URL (e.g. https://youtu.be/...)" autocomplete="off">
+                    <button type="button" class="btn-fetch-yt" id="fetchYtBtn">
+                        <span id="fetchBtnSpinner" class="btn-spinner" style="display: none;"></span>
+                        <span id="fetchBtnText">Fetch Video</span>
+                    </button>
+                </div>
+
+                <!-- YouTube Video Preview & Trimmer Slider Card -->
+                <div id="ytDetailsCard" class="yt-details-card" style="display: none;">
+                    <div class="yt-media-row">
+                        <img id="ytThumbImg" class="yt-thumb" src="" alt="YouTube Video Thumbnail">
+                        <div class="yt-meta">
+                            <h4 id="ytTitleText" class="yt-title">Video Title</h4>
+                            <div class="yt-submeta">
+                                <span id="ytAuthorText" class="yt-author">Channel Name</span>
+                                <span id="ytDurationBadge" class="yt-duration-badge">00:00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Trimmer Slider Section -->
+                    <div class="trimmer-section">
+                        <div class="trimmer-header">
+                            <span class="trimmer-title">✂️ Cut Clip Duration (Start & End)</span>
+                            <span id="clipDurationLabel" class="clip-duration-badge">Selected: Full Video</span>
+                        </div>
+
+                        <div class="trimmer-inputs-row">
+                            <div class="time-input-box">
+                                <label for="trimStartInput">Start Time:</label>
+                                <input type="text" id="trimStartInput" class="time-field" value="00:00" placeholder="00:00">
+                            </div>
+                            <div class="time-divider">➔</div>
+                            <div class="time-input-box">
+                                <label for="trimEndInput">End Time:</label>
+                                <input type="text" id="trimEndInput" class="time-field" value="00:00" placeholder="00:00">
+                            </div>
+                            <button type="button" class="btn-full-video" id="btnFullVideo">Use Full</button>
+                        </div>
+
+                        <!-- Range Sliders -->
+                        <div class="slider-track-wrap">
+                            <input type="range" id="sliderStart" class="yt-range-slider" min="0" max="100" value="0">
+                            <input type="range" id="sliderEnd" class="yt-range-slider" min="0" max="100" value="100">
+                        </div>
                     </div>
                 </div>
             </div>
