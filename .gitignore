@@ -9,5 +9,4 @@ storage/temp/*
 !storage/inputs/.gitkeep
 !storage/outputs/.gitkeep
 !storage/temp/.gitkeep
-cookies.txt
 cookies_runtime.txt
