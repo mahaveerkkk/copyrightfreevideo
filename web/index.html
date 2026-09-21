@@ -216,45 +216,79 @@
             </div>
             
             <div class="arsenal-grid">
-                <!-- Tool 1: Micro Speed -->
-                <div class="arsenal-card active" id="toolSpeedCard">
+                <!-- Tool 1: Dynamic 5-Style Camera Motion (Random Cuts & Zooms) -->
+                <div class="arsenal-card active" id="toolDynamicCamCard">
                     <div class="arsenal-header">
-                        <span class="arsenal-emoji">⏩</span>
+                        <span class="arsenal-emoji">🎥</span>
                         <span class="arsenal-status on">ACTIVE</span>
                     </div>
-                    <div class="arsenal-name">Micro Speed Modulation</div>
-                    <div class="arsenal-desc"><strong>Kisliye:</strong> Video ko 2% speed shift karta hai. Insaan ko bilkul pata nahi chalta, par YouTube ka audio-video timeline match 100% toot jata hai.</div>
+                    <div class="arsenal-name">Dynamic 5-Style Camera Motion</div>
+                    <div class="arsenal-desc"><strong>Kisliye:</strong> Har 5-8 second me random 5%-11% zoom aur camera cuts lagata hai. Video bilkul seedhi rahegi (No Mirror), par YouTube ka bot timeline match nahi kar payega.</div>
                 </div>
 
-                <!-- Tool 2: Audio Pitch & Stereo Widen -->
+                <!-- Tool 2: Procedural Cinema Color & Grain -->
+                <div class="arsenal-card active" id="toolColorToneCard">
+                    <div class="arsenal-header">
+                        <span class="arsenal-emoji">🎨</span>
+                        <span class="arsenal-status on">ACTIVE</span>
+                    </div>
+                    <div class="arsenal-name">Procedural Color Tone & Film Grain</div>
+                    <div class="arsenal-desc"><strong>Kisliye:</strong> Har video ke liye naya cinematic color grade (Teal-Orange / Amber) aur film grain banata hai, taaki do video ka pixel hash kabhi match na ho.</div>
+                </div>
+
+                <!-- Tool 3: Clean Dialogue + Safe BGM -->
+                <div class="arsenal-card active" id="toolDialogueCard">
+                    <div class="arsenal-header">
+                        <span class="arsenal-emoji">🎙️</span>
+                        <span class="arsenal-status on">ACTIVE</span>
+                    </div>
+                    <div class="arsenal-name">Clean Dialogue & Safe BGM Bed</div>
+                    <div class="arsenal-desc"><strong>Kisliye:</strong> Movie ka original copyrighted BGM mute kar deta hai, sirf actors ke dialogue saaf rakhta hai aur peeche safe mood music mix karta hai.</div>
+                </div>
+
+                <!-- Tool 4: Audio Acoustic Scrambler -->
                 <div class="arsenal-card active" id="toolAudioCard">
                     <div class="arsenal-header">
                         <span class="arsenal-emoji">🔊</span>
                         <span class="arsenal-status on">ACTIVE</span>
                     </div>
                     <div class="arsenal-name">Acoustic Pitch & Frequency Shift</div>
-                    <div class="arsenal-desc"><strong>Kisliye:</strong> Audio ki frequency aur stereo ko halka sa shift karta hai taaki automated copyright bot aawaz pehchan na sake.</div>
+                    <div class="arsenal-desc"><strong>Kisliye:</strong> Audio pitch (+0.3st) aur frequency notch filters lagata hai taaki automated Shazam bot aawaz pehchan na sake.</div>
                 </div>
 
-                <!-- Tool 3: Mirror Flip -->
+                <!-- Tool 5: Mirror Flip (Optional, Off by default) -->
                 <div class="arsenal-card" id="toolMirrorCard">
                     <div class="arsenal-header">
                         <span class="arsenal-emoji">🪞</span>
                         <span class="arsenal-status off">OPTIONAL</span>
                     </div>
-                    <div class="arsenal-name">Horizontal Mirror (Left-Right Ulta)</div>
-                    <div class="arsenal-desc"><strong>Kisliye:</strong> Video ko mirror karta hai. Movies scenes ke liye bohot effective hai. Agar video me padhne wala text hai to ise OFF rakhein.</div>
+                    <div class="arsenal-name">Horizontal Mirror (Ulta)</div>
+                    <div class="arsenal-desc"><strong>Kisliye:</strong> Video ko ulta karta hai. Text wali movie scenes ke liye ise OFF hi rakhein.</div>
                 </div>
 
-                <!-- Tool 4: PiP Border Frame -->
+                <!-- Tool 6: PiP Border Frame (Optional) -->
                 <div class="arsenal-card" id="toolBorderCard">
                     <div class="arsenal-header">
                         <span class="arsenal-emoji">🎞️</span>
                         <span class="arsenal-status off">OPTIONAL</span>
                     </div>
                     <div class="arsenal-name">Cinematic Edge Border</div>
-                    <div class="arsenal-desc"><strong>Kisliye:</strong> Video ke charo taraf 2% black border lagata hai taaki video ka exact frame size mismatch ho jaye. Movie clips me cinematic lagta hai.</div>
+                    <div class="arsenal-desc"><strong>Kisliye:</strong> Video ke charo taraf 2% clean black border lagata hai.</div>
                 </div>
+            </div>
+
+            <!-- Safe BGM Mood Selector Dropdown -->
+            <div class="bgm-mood-bar" style="margin-top: 1.2rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <label for="bgmMoodSelect" style="font-size: 0.88rem; font-weight: 600; color: #cbd5e1; display: flex; align-items: center; gap: 6px;">
+                    <span>🎵</span> <span>Movie BGM Mood:</span>
+                </label>
+                <select id="bgmMoodSelect" class="styled-select" style="min-width: 220px; background: #0c101a; border: 1px solid rgba(0, 240, 255, 0.3); color: #e2e8f0; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem;">
+                    <option value="auto">🎲 Auto-Random (Surprise Mood)</option>
+                    <option value="cinematic_tension">🎬 Cinematic Suspense & Drama</option>
+                    <option value="action_tension">💥 Action & Fight Pulse</option>
+                    <option value="emotional_piano">💔 Emotional & Deep Piano</option>
+                    <option value="lofi_chill">☕ Calm Lo-Fi Ambient</option>
+                </select>
             </div>
 
             <!-- Action Button -->

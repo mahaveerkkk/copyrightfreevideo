@@ -68,26 +68,34 @@ class VideoTransformer:
         job_temp_dir = os.path.join(os.path.dirname(output_path), f"tmp_{os.path.basename(output_path)}")
         os.makedirs(job_temp_dir, exist_ok=True)
         
+        # Procedural seed based on job/timestamp to guarantee zero pattern repetition
+        seed = int(time.time() * 1000) % 100000
+        
         clean_audio_file = None
         
-        # 3. AI Stem Separation (If enabled in AI Deep Mode)
-        if is_ai_deep and use_vocal_swap and has_audio:
+        # 3. AI Stem Separation / Clean Dialogue Isolation
+        # Supports both AI Deep mode and Turbo mode with vocal isolation toggle
+        isolate_dialogue = ai_options.get("vocal_swap", False) or video_config.get("isolate_dialogue", False)
+        
+        if isolate_dialogue and has_audio:
             if progress_callback:
-                progress_callback(15.0, "AI Stem Separation: Isolating dialogue and muting copyrighted score...")
+                progress_callback(15.0, "Isolating dialogue & muting copyrighted score...")
             clean_audio_file = os.path.join(job_temp_dir, "clean_mix.aac")
             isolate_dialogue_and_swap_bgm(
                 input_video=input_path,
                 output_audio_path=clean_audio_file,
                 temp_dir=job_temp_dir,
                 bgm_type=bgm_type,
+                duration_sec=duration,
+                seed=seed,
                 progress_callback=progress_callback
             )
             
         # 4. Construct FFmpeg Command (Inputs MUST come before outputs)
         if progress_callback:
-            progress_callback(50.0, "Synthesizing multi-band visual & acoustic filtergraph...")
+            progress_callback(50.0, "Synthesizing dynamic 5-style motion & acoustic shield...")
             
-        video_filters = build_video_filter_graph(video_config)
+        video_filters = build_video_filter_graph(video_config, seed=seed)
         
         cmd = [self.ffmpeg_bin, "-y"]
         
@@ -102,9 +110,9 @@ class VideoTransformer:
             split_input_idx = current_input_count
             current_input_count += 1
             
-        # Tertiary Input (for clean mixed audio)
+        # Clean Dialogue / Mixed audio input
         audio_input_idx = None
-        if is_ai_deep and clean_audio_file and os.path.exists(clean_audio_file):
+        if clean_audio_file and os.path.exists(clean_audio_file):
             cmd.extend(["-i", clean_audio_file])
             audio_input_idx = current_input_count
             current_input_count += 1
@@ -116,12 +124,14 @@ class VideoTransformer:
         else:
             cmd.extend(["-vf", video_filters, "-map", "0:v:0"])
             
-        # Video encoding parameters — veryfast balances speed + encoding complexity for bypass
+        # Video encoding parameters — optimized for 1GB RAM & 10-30 min movie streams
         cmd.extend([
             "-c:v", "libx264",
             "-preset", "veryfast",
             "-crf", "20",
-            "-pix_fmt", "yuv420p"
+            "-pix_fmt", "yuv420p",
+            "-threads", "2",
+            "-bufsize", "2000k"
         ])
         
         # Audio mapping & filters

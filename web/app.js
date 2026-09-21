@@ -590,16 +590,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // 2.5 One-Tap Defense Arsenal Interactive Toggles
+    const toolDynamicCamCard = document.getElementById("toolDynamicCamCard");
+    const toolColorToneCard = document.getElementById("toolColorToneCard");
+    const toolDialogueCard = document.getElementById("toolDialogueCard");
+    const toolAudioCard = document.getElementById("toolAudioCard");
     const toolMirrorCard = document.getElementById("toolMirrorCard");
     const toolBorderCard = document.getElementById("toolBorderCard");
-    const toolSpeedCard = document.getElementById("toolSpeedCard");
-    const toolAudioCard = document.getElementById("toolAudioCard");
+    const bgmMoodSelect = document.getElementById("bgmMoodSelect");
 
     const arsenalState = {
-        mirror_flip: false,  // Optional: User can tap ON if needed
-        border_frame: false, // Optional: User can tap ON if needed
-        speed_ramp: true,    // Core Stealth: Inaudible & invisible 2% timeline scramble
-        audio_pitch: true    // Core Stealth: Inaudible acoustic phase shift
+        dynamic_camera: true,  // Core Cinema Motion: Random 5-11% zooms & cuts every 5-8s
+        color_tone: true,      // Core Procedural Color: Random cinematic color grade & grain
+        isolate_dialogue: true,// Core Dialogue: Mutes original BGM, preserves clean voice
+        audio_pitch: true,     // Core Acoustic Scramble: Pitch +0.3st, speed 1.02x, notch EQ
+        mirror_flip: false,    // Optional: Kept OFF to prevent unnatural backward video
+        border_frame: false    // Optional: 2% clean black border
     };
 
     function setupArsenalToggle(card, key) {
@@ -615,10 +620,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    setupArsenalToggle(toolDynamicCamCard, "dynamic_camera");
+    setupArsenalToggle(toolColorToneCard, "color_tone");
+    setupArsenalToggle(toolDialogueCard, "isolate_dialogue");
+    setupArsenalToggle(toolAudioCard, "audio_pitch");
     setupArsenalToggle(toolMirrorCard, "mirror_flip");
     setupArsenalToggle(toolBorderCard, "border_frame");
-    setupArsenalToggle(toolSpeedCard, "speed_ramp");
-    setupArsenalToggle(toolAudioCard, "audio_pitch");
 
     // 4. Chunked Upload Implementation — Mobile Golden Spot: 4MB slices + 2 parallel uploads
     const CHUNK_SIZE = 4 * 1024 * 1024; // 4 MB (Super smooth on mobile networks)
@@ -700,17 +707,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         const customSettings = {
             video: {
                 mirror_flip: arsenalState.mirror_flip,
-                border_frame: arsenalState.border_frame
+                border_frame: arsenalState.border_frame,
+                dynamic_camera: arsenalState.dynamic_camera,
+                color_mood: arsenalState.color_tone ? (bgmMoodSelect ? bgmMoodSelect.value : "auto") : "none",
+                isolate_dialogue: arsenalState.isolate_dialogue
             },
             audio: {
-                speed_ramp: arsenalState.speed_ramp,
-                pitch_semitones: arsenalState.audio_pitch ? 0.5 : 0.0,
+                speed_ramp: arsenalState.audio_pitch,
+                pitch_semitones: arsenalState.audio_pitch ? 0.35 : 0.0,
                 stereo_widen: arsenalState.audio_pitch
             },
             ai_options: {
-                vocal_swap: vocalSwapToggle.checked,
+                vocal_swap: arsenalState.isolate_dialogue || vocalSwapToggle.checked,
                 split_screen: splitScreenToggle.checked,
-                bgm_type: bgmChoice.value
+                bgm_type: bgmMoodSelect ? bgmMoodSelect.value : "auto"
             }
         };
 
@@ -760,17 +770,20 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const customSettings = {
                     video: {
                         mirror_flip: arsenalState.mirror_flip,
-                        border_frame: arsenalState.border_frame
+                        border_frame: arsenalState.border_frame,
+                        dynamic_camera: arsenalState.dynamic_camera,
+                        color_mood: arsenalState.color_tone ? (bgmMoodSelect ? bgmMoodSelect.value : "auto") : "none",
+                        isolate_dialogue: arsenalState.isolate_dialogue
                     },
                     audio: {
-                        speed_ramp: arsenalState.speed_ramp,
-                        pitch_semitones: arsenalState.audio_pitch ? 0.5 : 0.0,
+                        speed_ramp: arsenalState.audio_pitch,
+                        pitch_semitones: arsenalState.audio_pitch ? 0.35 : 0.0,
                         stereo_widen: arsenalState.audio_pitch
                     },
                     ai_options: {
-                        vocal_swap: vocalSwapToggle.checked,
+                        vocal_swap: arsenalState.isolate_dialogue || vocalSwapToggle.checked,
                         split_screen: splitScreenToggle.checked,
-                        bgm_type: bgmChoice.value
+                        bgm_type: bgmMoodSelect ? bgmMoodSelect.value : "auto"
                     }
                 };
 
