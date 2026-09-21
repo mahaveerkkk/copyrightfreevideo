@@ -35,23 +35,41 @@ def get_base_ydl_opts() -> dict:
 
 def extract_with_client_fallback(url: str, download: bool = False, custom_opts: Optional[dict] = None) -> dict:
     """
-    Extracts video metadata or direct streaming URLs using Android/iOS app client fallback.
-    Prevents 'Sign in to confirm you are not a bot' block.
+    Extracts video metadata or direct streaming URLs using multi-tier client fallback.
+    Prevents 'The page needs to be reloaded' and 'Sign in to confirm you are not a bot' blocks.
+    Tier 1: TV Embedded (best for restricted music/movies, never requires page reload)
+    Tier 2: VisionOS & TV (high compatibility, bypasses web JS bot challenges)
+    Tier 3: Web Creator & MWeb
+    Tier 4: Android & iOS app client
+    Tier 5: Clean fallback without cookies (in case cookies are stale)
     """
     client_strategies = [
-        # Strategy 1: Android & iOS app client (bypasses datacenter block)
-        {'extractor_args': {'youtube': {'player_client': ['android', 'ios']}}},
-        # Strategy 2: Web Creator & MWeb
-        {'extractor_args': {'youtube': {'player_client': ['web_creator', 'mweb']}}},
-        # Strategy 3: TV Embedded (best for restricted music/movies)
-        {'extractor_args': {'youtube': {'player_client': ['tv_embedded']}}},
-        # Strategy 4: Standard default
-        {}
+        # Strategy 1: TV Embedded (most resilient, bypasses reload errors & bot checks)
+        ({'extractor_args': {'youtube': {'player_client': ['tv_embedded']}}}, True),
+        # Strategy 2: VisionOS & TV
+        ({'extractor_args': {'youtube': {'player_client': ['visionos', 'tv']}}}, False),
+        # Strategy 3: Web Creator & MWeb
+        ({'extractor_args': {'youtube': {'player_client': ['web_creator', 'mweb']}}}, True),
+        # Strategy 4: Android & iOS app client (no cookies because android client rejects cookies)
+        ({'extractor_args': {'youtube': {'player_client': ['android', 'ios']}}}, False),
+        # Strategy 5: Clean TV embedded without cookies
+        ({'extractor_args': {'youtube': {'player_client': ['tv_embedded']}}}, False),
+        # Strategy 6: Standard default
+        ({}, False)
     ]
 
     last_err = None
-    for strat in client_strategies:
-        opts = get_base_ydl_opts()
+    for strat, use_cookies in client_strategies:
+        opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'socket_timeout': 30,
+        }
+        if use_cookies:
+            base_cookie_opts = get_base_ydl_opts()
+            if 'cookiefile' in base_cookie_opts:
+                opts['cookiefile'] = base_cookie_opts['cookiefile']
+
         opts.update(strat)
         if custom_opts:
             opts.update(custom_opts)
