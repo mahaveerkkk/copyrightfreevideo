@@ -92,10 +92,35 @@ def format_time_str(seconds: float) -> str:
     secs = int(seconds % 60)
     return f"{mins:02d}:{secs:02d}"
 
+def is_direct_video_link(url: str) -> bool:
+    """Checks if a URL is a direct video download/stream link."""
+    clean = url.split("?")[0].lower()
+    return clean.endswith(('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v')) or '/download' in clean
+
 def get_youtube_info(url: str) -> Dict[str, Any]:
     """
-    Extracts metadata from YouTube URL without downloading.
+    Extracts metadata from YouTube URL or Direct Movie Download URL (9xflix, Filmyfly, etc.).
     """
+    if is_direct_video_link(url):
+        # Direct Movie CDN link probe
+        from core.metadata_cleaner import probe_video
+        try:
+            p_info = probe_video(url)
+            duration = float(p_info.get("duration", 0.0) or 0.0)
+        except Exception:
+            duration = 3600.0 # fallback duration if server blocks probe
+
+        filename = os.path.basename(url.split("?")[0]) or "Direct_Movie.mp4"
+        return {
+            "title": f"🎬 {filename}",
+            "duration": duration,
+            "duration_str": format_time_str(duration),
+            "thumbnail": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&q=80",
+            "channel": "Direct Cloud CDN Stream",
+            "id": "direct_stream",
+            "is_direct": True
+        }
+
     info = extract_with_client_fallback(url, download=False, custom_opts={'skip_download': True})
     duration = float(info.get('duration', 0) or 0)
     
@@ -109,7 +134,8 @@ def get_youtube_info(url: str) -> Dict[str, Any]:
         "duration_str": format_time_str(duration),
         "thumbnail": thumbnail,
         "channel": info.get('uploader') or info.get('channel', 'Unknown Creator'),
-        "id": info.get('id', '')
+        "id": info.get('id', ''),
+        "is_direct": False
     }
 
 def download_and_trim_youtube(
@@ -129,37 +155,49 @@ def download_and_trim_youtube(
     if progress_callback:
         progress_callback(10.0, "Resolving direct high-speed stream URLs...")
 
-    # Extract direct video and audio streaming URLs
-    custom_opts = {
-        'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best',
-        'skip_download': True
-    }
-    info = extract_with_client_fallback(url, download=False, custom_opts=custom_opts)
-
-    # Calculate trim duration
-    total_duration = float(info.get('duration', 0) or 0)
-    clip_start = max(0.0, float(start_sec))
-    if end_sec and end_sec > clip_start:
-        clip_duration = min(600.0, float(end_sec) - clip_start)
+    # Direct Movie Link or YouTube Stream
+    if is_direct_video_link(url):
+        v_url = url
+        a_url = None
+        clip_start = max(0.0, float(start_sec))
+        if end_sec and end_sec > clip_start:
+            clip_duration = min(600.0, float(end_sec) - clip_start)
+        else:
+            clip_duration = 60.0
+        if progress_callback:
+            progress_callback(25.0, f"Capturing {int(clip_duration)}s clip from direct movie stream...")
     else:
-        clip_duration = 45.0 # default 45s clip if unspecified
+        # Extract direct video and audio streaming URLs from YouTube
+        custom_opts = {
+            'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best',
+            'skip_download': True
+        }
+        info = extract_with_client_fallback(url, download=False, custom_opts=custom_opts)
 
-    if progress_callback:
-        progress_callback(25.0, f"Capturing direct {int(clip_duration)}s clip from stream...")
+        # Calculate trim duration
+        total_duration = float(info.get('duration', 0) or 0)
+        clip_start = max(0.0, float(start_sec))
+        if end_sec and end_sec > clip_start:
+            clip_duration = min(600.0, float(end_sec) - clip_start)
+        else:
+            clip_duration = 45.0 # default 45s clip if unspecified
 
-    # Check if stream has separate video and audio URLs
-    v_url = None
-    a_url = None
+        if progress_callback:
+            progress_callback(25.0, f"Capturing direct {int(clip_duration)}s clip from stream...")
 
-    if 'requested_formats' in info and len(info['requested_formats']) >= 2:
-        v_url = info['requested_formats'][0].get('url')
-        a_url = info['requested_formats'][1].get('url')
-    elif 'url' in info:
-        v_url = info.get('url')
+        # Check if stream has separate video and audio URLs
+        v_url = None
         a_url = None
 
-    if not v_url:
-        raise RuntimeError("Could not resolve streaming URL from YouTube.")
+        if 'requested_formats' in info and len(info['requested_formats']) >= 2:
+            v_url = info['requested_formats'][0].get('url')
+            a_url = info['requested_formats'][1].get('url')
+        elif 'url' in info:
+            v_url = info.get('url')
+            a_url = None
+
+        if not v_url:
+            raise RuntimeError("Could not resolve streaming URL from YouTube.")
 
     # Construct FFmpeg HTTP Seek Command
     # Placing -ss before -i enables rapid seek without downloading earlier parts

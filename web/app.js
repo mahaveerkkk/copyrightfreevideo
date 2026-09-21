@@ -366,11 +366,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateButtonLabel();
     });
 
-    // Fetch YouTube Video Info
+    // Fetch YouTube Video / Direct Movie Info
     fetchYtBtn.addEventListener("click", async () => {
         const url = ytUrlInput.value.trim();
         if (!url) {
-            alert("Please paste a valid YouTube video or Shorts link");
+            alert("Please paste a YouTube link or direct movie download URL (MP4, MKV)");
             return;
         }
 

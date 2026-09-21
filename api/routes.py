@@ -23,11 +23,17 @@ os.makedirs(CHUNKS_BASE_DIR, exist_ok=True)
 async def get_presets():
     return list(PRESETS.values())
 
-# 0. YouTube: Fetch Video Info (Title, Thumbnail, Duration)
+# 0. YouTube & Direct Video URL: Fetch Video Info (Title, Thumbnail, Duration)
 @router.post("/youtube/info")
 async def fetch_youtube_video_info(url: str = Form(...)):
-    if not url or ("youtube.com" not in url and "youtu.be" not in url):
-        raise HTTPException(status_code=400, detail="Please enter a valid YouTube video or Shorts link")
+    url = url.strip()
+    is_yt = ("youtube.com" in url or "youtu.be" in url)
+    is_direct = url.startswith(("http://", "https://")) and (
+        url.split("?")[0].lower().endswith(('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v')) or '/download' in url.lower() or 'cloud' in url.lower() or 'filesdl' in url.lower()
+    )
+
+    if not url or (not is_yt and not is_direct):
+        raise HTTPException(status_code=400, detail="Please enter a valid YouTube video link or direct movie download URL")
     try:
         info = get_youtube_info(url)
         return info
@@ -130,7 +136,7 @@ async def api_process_lofi_music(
         preset="lofi_scrambler"
     )
 
-# 0.5 YouTube: Process Trimmed Video to Copyright-Free
+# 0.5 YouTube & Direct Video: Process Trimmed Video to Copyright-Free
 @router.post("/youtube/process", response_model=JobResponse)
 async def process_youtube_video(
     url: str = Form(...),
@@ -140,8 +146,14 @@ async def process_youtube_video(
     mode: str = Form("turbo"),
     custom_settings: Optional[str] = Form(None)
 ):
-    if not url or ("youtube.com" not in url and "youtu.be" not in url):
-        raise HTTPException(status_code=400, detail="Invalid YouTube URL")
+    url = url.strip()
+    is_yt = ("youtube.com" in url or "youtu.be" in url)
+    is_direct = url.startswith(("http://", "https://")) and (
+        url.split("?")[0].lower().endswith(('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v')) or '/download' in url.lower() or 'cloud' in url.lower() or 'filesdl' in url.lower()
+    )
+
+    if not url or (not is_yt and not is_direct):
+        raise HTTPException(status_code=400, detail="Invalid video URL")
 
     if preset not in PRESETS:
         preset = "stealth_deep"
