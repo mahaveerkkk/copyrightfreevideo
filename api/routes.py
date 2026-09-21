@@ -50,15 +50,28 @@ async def api_find_viral_hooks(url: str = Form(...)):
 @router.post("/music/lofi", response_model=JobResponse)
 async def api_process_lofi_music(
     url: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
     style: str = Form("slowed_reverb"),
     speed: float = Form(0.88),
     reverb_level: float = Form(0.5)
 ):
-    if not url or ("youtube.com" not in url and "youtu.be" not in url):
-        raise HTTPException(status_code=400, detail="Please provide a valid YouTube song URL")
+    if not url and not file:
+        raise HTTPException(status_code=400, detail="Please provide a YouTube song URL or upload an audio file")
 
+    is_youtube = bool(url and ("youtube.com" in url or "youtu.be" in url))
+    
     job_id = str(uuid.uuid4())
     output_path = os.path.join(OUTPUT_DIR, f"safe_{job_id}.mp4")
+    
+    input_source = url
+    if file:
+        ext = os.path.splitext(file.filename)[1].lower() or ".mp3"
+        local_input = os.path.join(INPUT_DIR, f"lofi_in_{job_id}{ext}")
+        async with aiofiles.open(local_input, "wb") as f:
+            while chunk := await file.read(1024 * 1024 * 2):
+                await f.write(chunk)
+        input_source = local_input
+        is_youtube = False
 
     # Background execution for Lo-Fi synthesis
     def run_lofi_task():
@@ -69,9 +82,9 @@ async def api_process_lofi_music(
             JOBS_STORE[job_id]["progress"] = 20.0
 
             process_music_lofi(
-                input_source=url,
+                input_source=input_source,
                 output_path=output_path,
-                is_youtube=True,
+                is_youtube=is_youtube,
                 style=style,
                 speed=speed,
                 reverb_level=reverb_level,
@@ -91,7 +104,7 @@ async def api_process_lofi_music(
 
     JOBS_STORE[job_id] = {
         "job_id": job_id,
-        "input_path": url,
+        "input_path": input_source or "Audio Track",
         "output_path": output_path,
         "preset": "lofi_scrambler",
         "mode": "lofi",

@@ -291,8 +291,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Studio 3: Generate Lo-Fi Action
     btnGenerateLofi.addEventListener("click", async () => {
+        const isUploadMode = tabLofiUpload.classList.contains("active");
         const url = lofiYtUrlInput.value.trim();
-        if (!url) {
+
+        if (isUploadMode && !selectedLofiFile) {
+            alert("Please select an audio file from your phone");
+            return;
+        } else if (!isUploadMode && !url) {
             alert("Please paste a YouTube song URL");
             return;
         }
@@ -308,11 +313,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         terminalOutput.innerHTML = "";
 
         try {
-            logTerminal(`[INIT] Audio Scrambler: ${url}`);
+            const targetLabel = isUploadMode ? selectedLofiFile.name : url;
+            logTerminal(`[INIT] Audio Scrambler: ${targetLabel}`);
             logTerminal(`[STYLE] Generating ${selectedLofiStyle.replace('_', ' ')} audio matrix...`);
 
             const form = new FormData();
-            form.append("url", url);
+            if (isUploadMode && selectedLofiFile) {
+                form.append("file", selectedLofiFile);
+            } else {
+                form.append("url", url);
+            }
             form.append("style", selectedLofiStyle);
             form.append("speed", "0.88");
             form.append("reverb_level", "0.5");

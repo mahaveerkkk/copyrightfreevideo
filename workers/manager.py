@@ -10,7 +10,8 @@ from typing import Dict, Any, Optional
 from core.engine import VideoTransformer
 from api.models import JobStatus
 
-_executor = ThreadPoolExecutor(max_workers=max(2, os.cpu_count() or 2))
+# Use serial execution (1 worker) on 1GB RAM servers to prevent FFmpeg OOM crash
+_executor = ThreadPoolExecutor(max_workers=1)
 transformer = VideoTransformer()
 
 JOBS_STORE: Dict[str, Dict[str, Any]] = {}
