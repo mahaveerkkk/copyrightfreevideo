@@ -136,10 +136,13 @@ class VideoTransformer:
         
         # Audio mapping & filters
         if audio_input_idx is not None:
-            # Clean dialogue + BGM track: align PTS with master video
+            # Clean dialogue + BGM track: align PTS with master video & smart cuts
+            audio_track_filters = ["aresample=async=1000:min_hard_comp=0.100000:first_pts=0"]
+            if video_config.get("smart_cuts", True):
+                audio_track_filters.insert(0, "aselect='not(between(mod(t\\,5.5)\\,5.35\\,5.50))',asetpts=N/SR/TB")
             cmd.extend([
                 "-map", f"{audio_input_idx}:a:0",
-                "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
+                "-af", ",".join(audio_track_filters),
                 "-c:a", "aac",
                 "-b:a", "192k",
                 "-ar", "44100"

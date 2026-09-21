@@ -604,6 +604,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const toolColorToneCard = document.getElementById("toolColorToneCard");
     const toolDialogueCard = document.getElementById("toolDialogueCard");
     const toolAudioCard = document.getElementById("toolAudioCard");
+    const toolSmartCutsCard = document.getElementById("toolSmartCutsCard");
+    const toolPoisonMeshCard = document.getElementById("toolPoisonMeshCard");
+    const toolFormantCard = document.getElementById("toolFormantCard");
     const toolMirrorCard = document.getElementById("toolMirrorCard");
     const toolBorderCard = document.getElementById("toolBorderCard");
     const bgmMoodSelect = document.getElementById("bgmMoodSelect");
@@ -612,7 +615,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         dynamic_camera: true,  // Core Cinema Motion: Random 5-11% zooms & cuts every 5-8s
         color_tone: true,      // Core Procedural Color: Random cinematic color grade & grain
         isolate_dialogue: true,// Core Dialogue: Mutes original BGM, preserves clean voice
-        audio_pitch: true,     // Core Acoustic Scramble: Pitch +0.3st, speed 1.02x, notch EQ
+        audio_pitch: true,     // Core Acoustic Scramble: Pitch +0.35st, speed 1.02x, notch EQ
+        smart_cuts: true,      // AI Smart Cuts: 0.15s invisible cuts every 5.5s to destroy 10s match
+        poison_mesh: true,     // Transparent Dynamic Poison Mesh: 1.8% noise to scramble pHash
+        formant_natural: true, // Formant Voice Naturalizer: Keeps voice rich & prevents chipmunk
         mirror_flip: false,    // Optional: Kept OFF to prevent unnatural backward video
         border_frame: false    // Optional: 2% clean black border
     };
@@ -634,6 +640,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     setupArsenalToggle(toolColorToneCard, "color_tone");
     setupArsenalToggle(toolDialogueCard, "isolate_dialogue");
     setupArsenalToggle(toolAudioCard, "audio_pitch");
+    setupArsenalToggle(toolSmartCutsCard, "smart_cuts");
+    setupArsenalToggle(toolPoisonMeshCard, "poison_mesh");
+    setupArsenalToggle(toolFormantCard, "formant_natural");
     setupArsenalToggle(toolMirrorCard, "mirror_flip");
     setupArsenalToggle(toolBorderCard, "border_frame");
 
@@ -720,12 +729,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                 border_frame: arsenalState.border_frame,
                 dynamic_camera: arsenalState.dynamic_camera,
                 color_mood: arsenalState.color_tone ? (bgmMoodSelect ? bgmMoodSelect.value : "auto") : "none",
-                isolate_dialogue: arsenalState.isolate_dialogue
+                isolate_dialogue: arsenalState.isolate_dialogue,
+                smart_cuts: arsenalState.smart_cuts,
+                poison_mesh: arsenalState.poison_mesh
             },
             audio: {
                 speed_ramp: arsenalState.audio_pitch,
                 pitch_semitones: arsenalState.audio_pitch ? 0.35 : 0.0,
-                stereo_widen: arsenalState.audio_pitch
+                stereo_widen: arsenalState.audio_pitch,
+                smart_cuts: arsenalState.smart_cuts,
+                formant_natural: arsenalState.formant_natural
             },
             ai_options: {
                 vocal_swap: arsenalState.isolate_dialogue || vocalSwapToggle.checked,
@@ -783,12 +796,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                         border_frame: arsenalState.border_frame,
                         dynamic_camera: arsenalState.dynamic_camera,
                         color_mood: arsenalState.color_tone ? (bgmMoodSelect ? bgmMoodSelect.value : "auto") : "none",
-                        isolate_dialogue: arsenalState.isolate_dialogue
+                        isolate_dialogue: arsenalState.isolate_dialogue,
+                        smart_cuts: arsenalState.smart_cuts,
+                        poison_mesh: arsenalState.poison_mesh
                     },
                     audio: {
                         speed_ramp: arsenalState.audio_pitch,
                         pitch_semitones: arsenalState.audio_pitch ? 0.35 : 0.0,
-                        stereo_widen: arsenalState.audio_pitch
+                        stereo_widen: arsenalState.audio_pitch,
+                        smart_cuts: arsenalState.smart_cuts,
+                        formant_natural: arsenalState.formant_natural
                     },
                     ai_options: {
                         vocal_swap: arsenalState.isolate_dialogue || vocalSwapToggle.checked,

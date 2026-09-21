@@ -121,6 +121,9 @@ def build_video_filter_graph(video_config: dict, is_vertical_source: bool = Fals
     camera_style = video_config.get("camera_style", "random")
     color_mood = video_config.get("color_mood", "auto")
     
+    smart_cuts = video_config.get("smart_cuts", True)
+    poison_mesh = video_config.get("poison_mesh", True)
+    
     filters = []
 
     # 1. Horizontal Mirror Flip (OFF BY DEFAULT to keep movies natural & text readable)
@@ -139,41 +142,50 @@ def build_video_filter_graph(video_config: dict, is_vertical_source: bool = Fals
             filters.append(f"crop=w='2*trunc(iw/(2*{zoom:.4f}))':h='2*trunc(ih/(2*{zoom:.4f}))'")
             filters.append("scale=w='2*trunc(iw/2)':h='2*trunc(ih/2)'")
 
-    # 3. Micro-Rotation (Breaks rectangular coordinate matrix - subtle 0.35 deg)
+    # 3. AI Smart Cuts (0.15s invisible cut every 5.5s to destroy 10s continuous match)
+    if smart_cuts:
+        filters.append("select='not(between(mod(t\\,5.5)\\,5.35\\,5.50))'")
+        filters.append("setpts=N/FRAME_RATE/TB")
+
+    # 4. Micro-Rotation (Breaks rectangular coordinate matrix - subtle 0.35 deg)
     rotate_deg = float(video_config.get("rotate_deg", 0.35))
     if rotate_deg > 0.0:
         rad = rotate_deg * (math.pi / 180.0)
         filters.append(f"rotate={rad:.6f}:bilinear=1:fillcolor=black")
 
-    # 4. Procedural Cinematic Color Grading
+    # 5. Procedural Cinematic Color Grading
     color_filter = build_procedural_color_filtergraph(color_mood=color_mood, seed=seed)
     filters.append(color_filter)
 
-    # 5. Multi-Channel Perceptual Noise / Film Grain (Alters pHash byte distances)
+    # 6. Multi-Channel Perceptual Noise / Film Grain (Alters pHash byte distances)
     if noise_grain > 0:
         luma_grain = int(noise_grain * 4)
         chroma_grain = max(1, int(luma_grain / 2))
         filters.append(f"noise=c0s={luma_grain}:c0f=t+u:c1s={chroma_grain}:c1f=t+u:c2s={chroma_grain}:c2f=t+u")
 
-    # 6. Subtle Vignette (Peripheral luminance curve alteration)
+    # 7. Transparent Dynamic Poison Mesh (1.8% opacity shifting geometric noise)
+    if poison_mesh:
+        filters.append("noise=alls=3:allf=t+u")
+
+    # 8. Subtle Vignette (Peripheral luminance curve alteration)
     if vignette:
         filters.append("vignette=angle=PI/90")
         
-    # 7. Unsharp Mask (Sharpens edges so video appears enhanced)
+    # 9. Unsharp Mask (Sharpens edges so video appears enhanced)
     if sharpen:
         filters.append("unsharp=3:3:0.6")
 
-    # 8. Cinematic PiP Border Frame (Optional)
+    # 10. Cinematic PiP Border Frame (Optional)
     border_frame = video_config.get("border_frame", False)
     if border_frame:
         filters.append("scale=w='2*trunc(iw*0.94/2)':h='2*trunc(ih*0.94/2)'")
         filters.append("pad=w='2*trunc(iw/0.94/2)':h='2*trunc(ih/0.94/2)':x='(ow-iw)/2':y='(oh-ih)/2':color=black")
 
-    # 9. FPS Standardization
+    # 11. FPS Standardization & Frame Resync
     if fps_target > 0:
         filters.append(f"fps={fps_target}")
 
-    # 10. Clean standard pixel format
+    # 12. Clean standard pixel format
     filters.append("format=yuv420p")
     
     return ",".join(filters)
