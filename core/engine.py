@@ -8,6 +8,7 @@ Supports Dual-Engine Execution:
 import os
 import re
 import subprocess
+import threading
 import time
 from typing import Callable, Optional, Dict, Any
 
@@ -165,6 +166,20 @@ class VideoTransformer:
             bufsize=1
         )
         
+        # Drain stderr concurrently in background thread to prevent OS pipe deadlock
+        stderr_buffer = []
+        def _drain_stderr():
+            try:
+                for err_line in process.stderr:
+                    stderr_buffer.append(err_line)
+                    if len(stderr_buffer) > 200:
+                        stderr_buffer.pop(0)
+            except Exception:
+                pass
+
+        stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+        stderr_thread.start()
+
         out_time_ms_pattern = re.compile(r"out_time_ms=(\d+)")
         
         while True:
@@ -180,8 +195,9 @@ class VideoTransformer:
                 if progress_callback:
                     progress_callback(min(pct, 96.0), f"Transforming frames ({int(pct)}%)...")
                     
-        stderr = process.stderr.read()
+        stderr_thread.join(timeout=2.0)
         retcode = process.poll()
+        stderr_text = "".join(stderr_buffer)
         
         # Clean up intermediate temporary files
         try:
@@ -191,7 +207,7 @@ class VideoTransformer:
             pass
             
         if retcode != 0:
-            raise RuntimeError(f"FFmpeg pipeline error (code {retcode}): {stderr[-500:]}")
+            raise RuntimeError(f"FFmpeg pipeline error (code {retcode}): {stderr_text[-500:]}")
             
         # 6. Verification Probe
         if progress_callback:

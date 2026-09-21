@@ -67,6 +67,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     let currentInputMode = "upload"; // 'upload' or 'youtube'
     let ytVideoData = null; // { title, duration, thumbnail, author, url }
     let trimRange = { start: 0, end: 0 };
+    let pendingHookData = null;
 
     let selectedFile = null;
     let activeMode = "turbo";
@@ -259,13 +260,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 // When user clicks "Use in Movie Shield", transfer to Studio 1 Trimmer!
                 card.querySelector(".btn-use-hook").addEventListener("click", () => {
-                    switchMasterStudio("movie");
-                    currentInputMode = "youtube";
-                    tabYoutubeMode.click();
-                    ytUrlInput.value = url;
-                    fetchYtBtn.click();
-
-                    // Lock hook timestamps once video data is fetched
+                    // Lock hook timestamps for fetch callback
                     pendingHookData = {
                         start: h.start,
                         end: h.end,
@@ -273,9 +268,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                         endStr: h.end_str
                     };
 
-                    setTimeout(() => {
-                        applyHookTimestamps(h.start, h.end);
-                    }, 800);
+                    switchMasterStudio("movie");
+                    currentInputMode = "youtube";
+                    tabYoutubeMode.click();
+                    ytUrlInput.value = url;
+                    fetchYtBtn.click();
                 });
 
                 hookCardsList.appendChild(card);
@@ -393,25 +390,26 @@ document.addEventListener("DOMContentLoaded", async () => {
             ytAuthorText.innerText = data.channel;
             ytDurationBadge.innerText = data.duration_str || secondsToMMSS(data.duration);
 
-            // Initialize Trimmer
+            // Initialize Trimmer (If video is long, default to a smart 45-60s clip range for speed)
             const totalSec = Math.max(5, Math.round(data.duration));
-            trimRange.start = 0;
-            trimRange.end = totalSec;
-
             sliderStart.max = totalSec;
             sliderEnd.max = totalSec;
-            sliderStart.value = 0;
-            sliderEnd.value = totalSec;
 
-            trimStartInput.value = "00:00";
-            trimEndInput.value = secondsToMMSS(totalSec);
-            ytDetailsCard.style.display = "block";
-
-            // If a viral hook was selected, apply its exact timestamps immediately
             if (pendingHookData) {
                 applyHookTimestamps(pendingHookData.start, pendingHookData.end);
                 pendingHookData = null;
+            } else {
+                const initialEnd = totalSec > 90 ? Math.min(totalSec, 45) : totalSec;
+                trimRange.start = 0;
+                trimRange.end = initialEnd;
+                sliderStart.value = 0;
+                sliderEnd.value = initialEnd;
+                trimStartInput.value = "00:00";
+                trimEndInput.value = secondsToMMSS(initialEnd);
+                updateClipDurationBadge();
             }
+
+            ytDetailsCard.style.display = "block";
 
             updateButtonLabel();
 
