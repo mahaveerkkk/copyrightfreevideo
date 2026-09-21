@@ -136,13 +136,19 @@ class VideoTransformer:
         
         # Audio mapping & filters
         if audio_input_idx is not None:
+            # Clean dialogue + BGM track: align PTS with master video
             cmd.extend([
                 "-map", f"{audio_input_idx}:a:0",
+                "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
                 "-c:a", "aac",
-                "-b:a", "192k"
+                "-b:a", "192k",
+                "-ar", "44100"
             ])
         elif has_audio:
             audio_filters = build_audio_filter_graph(audio_config)
+            # Guarantee audio packets are hard-locked to video frame clock
+            if "aresample" not in audio_filters:
+                audio_filters += ",aresample=async=1000:min_hard_comp=0.100000:first_pts=0"
             cmd.extend([
                 "-af", audio_filters,
                 "-map", "0:a:0",

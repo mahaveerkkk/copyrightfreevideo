@@ -42,7 +42,7 @@ def build_audio_filter_graph(audio_config: dict, sample_rate: int = 44100) -> st
     
     # 2. Phase-accurate harmonic pitch modulation & tempo stretching
     filters.append(f"asetrate={adjusted_sample_rate}")
-    filters.append(f"aresample={sample_rate}")
+    filters.append(f"aresample={sample_rate}:async=1000:first_pts=0")
     filters.append(f"atempo={tempo_factor:.4f}")
     
     # 3. Spectral Notch Filter (attenuates Content ID sensitive frequency band ~3.2kHz)
@@ -60,4 +60,7 @@ def build_audio_filter_graph(audio_config: dict, sample_rate: int = 44100) -> st
     else:
         filters.append("acompressor=threshold=0.12:ratio=2:attack=20:release=250")
     
+    # 6. Final PTS lock to prevent audio-video drift
+    filters.append("aresample=async=1000:min_hard_comp=0.100000:first_pts=0")
+
     return ",".join(filters)

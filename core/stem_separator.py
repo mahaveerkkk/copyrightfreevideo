@@ -120,9 +120,10 @@ def isolate_dialogue_and_swap_bgm(
 
     fade_start = max(0.5, duration_sec - 1.5) if duration_sec > 2.0 else 0.0
     mix_filter = (
-        f"[0:a]volume=1.25[dialogue];"
+        f"[0:a]volume=1.25,aresample=async=1000:first_pts=0[dialogue];"
         f"[1:a]afade=t=out:st={fade_start:.2f}:d=1.5[bgm_faded];"
-        f"[dialogue][bgm_faded]amix=inputs=2:duration=first:dropout_transition=2[final_audio]"
+        f"[dialogue][bgm_faded]amix=inputs=2:duration=first:dropout_transition=2,"
+        f"aresample=async=1000:min_hard_comp=0.100000:first_pts=0[final_audio]"
     )
 
     cmd_mix = [

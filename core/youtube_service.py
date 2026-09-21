@@ -145,6 +145,7 @@ def download_and_trim_youtube(
 
     # Construct FFmpeg HTTP Seek Command
     # Placing -ss before -i enables rapid seek without downloading earlier parts
+    # -avoid_negative_ts make_zero ensures video and audio PTS start synchronously from timestamp 0.000
     cmd = ["ffmpeg", "-y"]
     cmd.extend(["-ss", str(clip_start)])
     cmd.extend(["-i", v_url])
@@ -158,13 +159,17 @@ def download_and_trim_youtube(
     if a_url:
         cmd.extend([
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+            "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
             "-c:a", "aac", "-b:a", "192k",
-            "-map", "0:v:0", "-map", "1:a:0"
+            "-map", "0:v:0", "-map", "1:a:0",
+            "-avoid_negative_ts", "make_zero"
         ])
     else:
         cmd.extend([
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
-            "-c:a", "aac", "-b:a", "192k"
+            "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
+            "-c:a", "aac", "-b:a", "192k",
+            "-avoid_negative_ts", "make_zero"
         ])
 
     cmd.extend(["-movflags", "+faststart", output_path])
@@ -174,12 +179,14 @@ def download_and_trim_youtube(
 
     res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if res.returncode != 0:
-        # Fallback if fast seek failed: try safe re-encode
+        # Fallback if fast seek failed: try safe re-encode with zero timestamp alignment
         cmd_fallback = [
             "ffmpeg", "-y",
             "-ss", str(clip_start), "-i", v_url,
             "-t", str(clip_duration),
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-af", "aresample=async=1000:first_pts=0",
+            "-avoid_negative_ts", "make_zero",
             output_path
         ]
         subprocess.run(cmd_fallback, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
