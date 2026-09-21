@@ -7,6 +7,8 @@ import re
 from typing import List, Dict, Any
 import yt_dlp
 
+from core.youtube_service import extract_with_client_fallback
+
 def format_time(seconds: float) -> str:
     m = int(seconds // 60)
     s = int(seconds % 60)
@@ -15,22 +17,19 @@ def format_time(seconds: float) -> str:
 def find_viral_hooks(youtube_url: str, max_hooks: int = 3) -> List[Dict[str, Any]]:
     """
     Analyzes YouTube video transcript and structure to find high-engagement viral moments.
-    Returns: List of {start, end, start_str, end_str, duration, title, reason, score}
+    Uses multi-client fallback (Android, iOS, Web Creator) to bypass datacenter bot detection.
     """
-    ydl_opts = {
+    custom_opts = {
         'skip_download': True,
         'writesubtitles': True,
         'writeautomaticsub': True,
-        'subtitleslangs': ['en', 'hi'],
-        'quiet': True,
-        'no_warnings': True
+        'subtitleslangs': ['en', 'hi']
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(youtube_url, download=False)
-        except Exception as e:
-            raise ValueError(f"Could not analyze YouTube video: {str(e)}")
+    try:
+        info = extract_with_client_fallback(youtube_url, download=False, custom_opts=custom_opts)
+    except Exception as e:
+        raise ValueError(f"Could not analyze YouTube video: {str(e)}")
 
     total_duration = float(info.get('duration', 0) or 0)
     if total_duration < 15:

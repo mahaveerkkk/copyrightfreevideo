@@ -572,10 +572,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
         fileSizeLabel.innerText = `${sizeMb} MB`;
 
-        // Show Video Preview
-        sourceVideoPlayer.src = URL.createObjectURL(file);
+        // Show Video Preview & Check Duration
+        const objectUrl = URL.createObjectURL(file);
+        sourceVideoPlayer.src = objectUrl;
         dropPrompt.style.display = "none";
         selectedPreview.style.display = "flex";
+
+        sourceVideoPlayer.onloadedmetadata = () => {
+            const durationSec = sourceVideoPlayer.duration;
+            const mins = Math.round(durationSec / 60);
+            if (durationSec > 600) { // More than 10 minutes
+                alert(`⚠️ Note: Uploaded video is ${mins} minutes long.\n\nServer 1GB RAM safety ke liye: Lambi videos ka 1 se 5 minute ka clip convert karna recommended hai, ya YouTube Trimmer use karein.`);
+            }
+        };
 
         updateButtonLabel();
     }
@@ -839,6 +848,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 activeEventSource.close();
                 mainStatusText.innerText = "Pipeline Terminated";
                 subStatusText.innerText = data.message;
+                const failRow = document.getElementById("failureActionRow");
+                if (failRow) failRow.style.display = "block";
             }
         };
 
@@ -859,12 +870,24 @@ document.addEventListener("DOMContentLoaded", async () => {
                     } else if (data.status === "failed") {
                         clearInterval(poller);
                         mainStatusText.innerText = "Failed";
+                        const failRow = document.getElementById("failureActionRow");
+                        if (failRow) failRow.style.display = "block";
                     }
                 } catch {
                     clearInterval(poller);
                 }
             }, 1200);
         };
+    }
+
+    const btnRetryFailed = document.getElementById("btnRetryFailed");
+    if (btnRetryFailed) {
+        btnRetryFailed.addEventListener("click", () => {
+            const failRow = document.getElementById("failureActionRow");
+            if (failRow) failRow.style.display = "none";
+            progressCard.style.display = "none";
+            configCard.style.display = "block";
+        });
     }
 
     function showCompleted(jobId, data) {
