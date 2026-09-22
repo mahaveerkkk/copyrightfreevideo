@@ -199,7 +199,7 @@ def download_and_trim_youtube(
         a_url = None
         clip_start = max(0.0, float(start_sec))
         if end_sec and end_sec > clip_start:
-            clip_duration = min(600.0, float(end_sec) - clip_start)
+            clip_duration = min(7200.0, float(end_sec) - clip_start)
         else:
             clip_duration = 60.0
         if progress_callback:
@@ -219,9 +219,9 @@ def download_and_trim_youtube(
         total_duration = float(info.get('duration', 0) or 0)
         clip_start = max(0.0, float(start_sec))
         if end_sec and end_sec > clip_start:
-            clip_duration = min(600.0, float(end_sec) - clip_start)
+            clip_duration = min(7200.0, float(end_sec) - clip_start)
         else:
-            clip_duration = 45.0 # default 45s clip if unspecified
+            clip_duration = min(7200.0, total_duration) if total_duration > 0 else 45.0
 
         if progress_callback:
             progress_callback(25.0, f"Capturing direct {int(clip_duration)}s clip from stream...")

@@ -129,6 +129,39 @@ async def api_my_renders(
     jobs = db_get_user_jobs(user["id"])
     return {"status": "ok", "user": user, "jobs": jobs}
 
+@router.delete("/my-renders/{job_id}")
+async def api_delete_render(
+    job_id: str,
+    authorization: Optional[str] = Header(None),
+    cr_session: Optional[str] = Cookie(None)
+):
+    user = get_current_user_optional(authorization, cr_session)
+    user_id = user["id"] if user else None
+
+    # 1. Purge physical files from storage
+    for folder in [OUTPUT_DIR, INPUT_DIR, TEMP_DIR]:
+        if not os.path.exists(folder): continue
+        for f in os.listdir(folder):
+            if job_id in f:
+                try:
+                    fpath = os.path.join(folder, f)
+                    if os.path.isfile(fpath):
+                        os.remove(fpath)
+                    elif os.path.isdir(fpath):
+                        shutil.rmtree(fpath, ignore_errors=True)
+                except Exception:
+                    pass
+
+    # 2. Purge from in-memory cache
+    if job_id in JOBS_STORE:
+        del JOBS_STORE[job_id]
+
+    # 3. Purge from SQLite DB
+    from core.db import db_delete_job
+    db_delete_job(job_id, user_id)
+
+    return {"status": "ok", "message": f"Job {job_id} and associated disk files permanently deleted"}
+
 # ================= CORE ENGINE ENDPOINTS =================
 
 @router.get("/presets")

@@ -252,5 +252,16 @@ def db_get_user_jobs(user_id: int, limit: int = 30) -> List[Dict[str, Any]]:
         rows = cursor.fetchall()
         return [dict(r) for r in rows]
 
+def db_delete_job(job_id: str, user_id: Optional[int] = None) -> bool:
+    """Deletes a job from the database."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        if user_id is not None:
+            cursor.execute("DELETE FROM render_jobs WHERE job_id = ? AND user_id = ?", (job_id, user_id))
+        else:
+            cursor.execute("DELETE FROM render_jobs WHERE job_id = ?", (job_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+
 # Initialize tables on import
 init_db()

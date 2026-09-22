@@ -1236,10 +1236,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                     actionHtml = `
                         <a href="/api/download/${job.job_id}" class="btn-render-action btn-render-download" download>⬇️ Download MP4</a>
                         <button type="button" class="btn-render-action btn-render-live" onclick="window.previewSavedJob('${job.job_id}')">🎬 View Player</button>
+                        <button type="button" class="btn-render-action btn-render-delete" onclick="window.deleteSavedJob('${job.job_id}')">🗑️ Delete</button>
                     `;
                 } else if (isProc) {
                     actionHtml = `
                         <button type="button" class="btn-render-action btn-render-live" onclick="window.reconnectJob('${job.job_id}')">⚡ View Live Progress</button>
+                        <button type="button" class="btn-render-action btn-render-delete" onclick="window.deleteSavedJob('${job.job_id}')">🗑️ Cancel / Delete</button>
+                    `;
+                } else {
+                    actionHtml = `
+                        <button type="button" class="btn-render-action btn-render-delete" onclick="window.deleteSavedJob('${job.job_id}')">🗑️ Delete</button>
                     `;
                 }
 
@@ -1288,6 +1294,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         processingView.style.display = "block";
         completedView.style.display = "none";
         subscribeJobStream(jobId);
+    };
+
+    window.deleteSavedJob = async (jobId) => {
+        if (!confirm("Are you sure you want to delete this video and free disk space?")) return;
+        try {
+            const res = await fetch(`/api/my-renders/${jobId}`, {
+                method: "DELETE",
+                headers: getAuthHeaders()
+            });
+            if (res.ok) {
+                if (localStorage.getItem("cr_active_job_id") === jobId) {
+                    localStorage.removeItem("cr_active_job_id");
+                }
+                loadMyRenders();
+                refreshMyRendersCount();
+            } else {
+                const d = await res.json();
+                alert(d.detail || "Failed to delete");
+            }
+        } catch (e) {
+            alert("Error deleting job: " + e.message);
+        }
     };
 
     // Auto-Resume Active Job on Page Load

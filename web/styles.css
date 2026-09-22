@@ -1744,6 +1744,15 @@ body {
     background: var(--cyan);
     color: #000;
 }
+.btn-render-delete {
+    background: rgba(239, 68, 68, 0.18);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+}
+.btn-render-delete:hover {
+    background: #ef4444;
+    color: #fff;
+}
 
 .renders-footer {
     display: flex;
