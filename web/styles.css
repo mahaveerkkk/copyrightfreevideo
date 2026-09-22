@@ -1778,3 +1778,105 @@ body {
 }
 .btn-refresh-renders:hover { background: rgba(255, 255, 255, 0.15); }
 
+/* ================= MULTI-PART AUTO-SPLITTER STYLES ================= */
+.split-mode-box {
+    margin-top: 1rem;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-md);
+    padding: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.split-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.split-icon { font-size: 1.1rem; }
+.split-label-group {
+    display: flex;
+    flex-direction: column;
+}
+.split-title {
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: #fff;
+}
+.split-desc {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+}
+
+.split-pill-group {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.split-pill {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    color: #cbd5e1;
+    padding: 0.45rem 0.3rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.split-pill:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.split-pill.active {
+    background: rgba(0, 240, 255, 0.18);
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+
+.split-calc-hint {
+    background: rgba(0, 240, 255, 0.08);
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    border-radius: 6px;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.72rem;
+    color: #a5f3fc;
+    margin-top: 2px;
+}
+
+/* Live Cancel Button on Progress Card */
+.btn-cancel-live {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+    padding: 0.55rem 1.2rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-cancel-live:hover {
+    background: rgba(239, 68, 68, 0.35);
+    border-color: var(--red);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-render-cancel {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+}
+.btn-render-cancel:hover {
+    background: #ef4444;
+    color: #fff;
+}
+

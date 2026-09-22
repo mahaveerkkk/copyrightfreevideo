@@ -417,9 +417,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 trimStartInput.value = "00:00";
                 trimEndInput.value = secondsToMMSS(initialEnd);
                 updateClipDurationBadge();
+                updateSplitHint();
             }
 
             ytDetailsCard.style.display = "block";
+            updateSplitHint();
 
             updateButtonLabel();
 
@@ -442,6 +444,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         trimRange.start = val;
         trimStartInput.value = secondsToMMSS(val);
         updateClipDurationBadge();
+        updateSplitHint();
     });
 
     sliderEnd.addEventListener("input", () => {
@@ -453,6 +456,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         trimRange.end = val;
         trimEndInput.value = secondsToMMSS(val);
         updateClipDurationBadge();
+        updateSplitHint();
     });
 
     trimStartInput.addEventListener("change", () => {
@@ -462,6 +466,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         sliderStart.value = trimRange.start;
         trimStartInput.value = secondsToMMSS(trimRange.start);
         updateClipDurationBadge();
+        updateSplitHint();
     });
 
     trimEndInput.addEventListener("change", () => {
@@ -472,6 +477,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         sliderEnd.value = trimRange.end;
         trimEndInput.value = secondsToMMSS(trimRange.end);
         updateClipDurationBadge();
+        updateSplitHint();
     });
 
     btnFullVideo.addEventListener("click", () => {
@@ -483,6 +489,39 @@ document.addEventListener("DOMContentLoaded", async () => {
         trimStartInput.value = "00:00";
         trimEndInput.value = secondsToMMSS(ytVideoData.duration);
         updateClipDurationBadge();
+        updateSplitHint();
+    });
+
+    // Multi-Part Auto-Splitter Controls
+    let activeSplitMinutes = 0;
+    const splitCalcHint = document.getElementById("splitCalcHint");
+    const splitPills = document.querySelectorAll(".split-pill");
+
+    function updateSplitHint() {
+        if (!splitCalcHint) return;
+        const totalDuration = Math.max(0, trimRange.end - trimRange.start);
+        if (activeSplitMinutes > 0 && totalDuration > 0) {
+            const splitSec = activeSplitMinutes * 60;
+            const partsCount = Math.ceil(totalDuration / splitSec);
+            if (partsCount > 1) {
+                splitCalcHint.style.display = "block";
+                splitCalcHint.innerHTML = `💡 <strong>${partsCount} continuous parts</strong> will be auto-generated in the background queue (${activeSplitMinutes} mins each). Each part will be instantly downloadable as it finishes!`;
+            } else {
+                splitCalcHint.style.display = "block";
+                splitCalcHint.innerHTML = `💡 Selected range (${secondsToMMSS(totalDuration)}) fits within 1 part. Will process as single video.`;
+            }
+        } else {
+            splitCalcHint.style.display = "none";
+        }
+    }
+
+    splitPills.forEach(pill => {
+        pill.addEventListener("click", () => {
+            splitPills.forEach(p => p.classList.remove("active"));
+            pill.classList.add("active");
+            activeSplitMinutes = parseInt(pill.dataset.split, 10) || 0;
+            updateSplitHint();
+        });
     });
 
     // 1. Load Presets
@@ -823,6 +862,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 ytForm.append("mode", activeMode);
                 ytForm.append("video_title", ytVideoData.title || "");
                 ytForm.append("custom_settings", JSON.stringify(customSettings));
+                ytForm.append("split_minutes", activeSplitMinutes);
 
                 const ytRes = await fetch("/api/youtube/process", {
                     method: "POST",
@@ -837,6 +877,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 const jobData = await ytRes.json();
                 jobId = jobData.job_id;
+                if (jobData.batch_id && jobData.parts_count) {
+                    logTerminal(`[MULTI-PART] Auto-split into ${jobData.parts_count} parts (Batch: ${jobData.batch_id.slice(0,8)})`);
+                }
 
             } else {
                 const jobData = await uploadInChunks(selectedFile);
@@ -934,6 +977,41 @@ document.addEventListener("DOMContentLoaded", async () => {
             progressCard.style.display = "none";
             configCard.style.display = "block";
             localStorage.removeItem("cr_active_job_id");
+        });
+    }
+
+    const btnCancelActiveJob = document.getElementById("btnCancelActiveJob");
+    if (btnCancelActiveJob) {
+        btnCancelActiveJob.addEventListener("click", async () => {
+            const activeId = localStorage.getItem("cr_active_job_id");
+            if (!activeId) {
+                progressCard.style.display = "none";
+                configCard.style.display = "block";
+                return;
+            }
+            if (!confirm("Are you sure you want to cancel this render? CPU/RAM and disk will be freed immediately.")) return;
+
+            btnCancelActiveJob.disabled = true;
+            btnCancelActiveJob.innerText = "Cancelling...";
+
+            try {
+                if (activeEventSource) activeEventSource.close();
+                const res = await fetch(`/api/jobs/${activeId}/cancel`, {
+                    method: "POST",
+                    headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                logTerminal(`[CANCELLED] ${data.message || 'Render cancelled.'}`);
+            } catch (err) {
+                console.error("Error cancelling job", err);
+            } finally {
+                localStorage.removeItem("cr_active_job_id");
+                btnCancelActiveJob.disabled = false;
+                btnCancelActiveJob.innerText = "🛑 Cancel Render";
+                progressCard.style.display = "none";
+                configCard.style.display = "block";
+                if (typeof refreshMyRendersCount === "function") refreshMyRendersCount();
+            }
         });
     }
 
@@ -1238,14 +1316,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <button type="button" class="btn-render-action btn-render-live" onclick="window.previewSavedJob('${job.job_id}')">🎬 View Player</button>
                         <button type="button" class="btn-render-action btn-render-delete" onclick="window.deleteSavedJob('${job.job_id}')">🗑️ Delete</button>
                     `;
-                } else if (isProc) {
+                } else if (isProc || job.status === "queued") {
+                    const batchBtn = job.batch_id ? `<button type="button" class="btn-render-action btn-render-cancel" onclick="window.cancelBatch('${job.batch_id}')">🛑 Cancel All Parts</button>` : '';
                     actionHtml = `
-                        <button type="button" class="btn-render-action btn-render-live" onclick="window.reconnectJob('${job.job_id}')">⚡ View Live Progress</button>
-                        <button type="button" class="btn-render-action btn-render-delete" onclick="window.deleteSavedJob('${job.job_id}')">🗑️ Cancel / Delete</button>
+                        <button type="button" class="btn-render-action btn-render-live" onclick="window.reconnectJob('${job.job_id}')">⚡ View Live</button>
+                        <button type="button" class="btn-render-action btn-render-cancel" onclick="window.cancelJob('${job.job_id}')">🛑 Cancel</button>
+                        ${batchBtn}
                     `;
                 } else {
                     actionHtml = `
-                        <button type="button" class="btn-render-action btn-render-delete" onclick="window.deleteSavedJob('${job.job_id}')">🗑️ Delete</button>
+                        <button type="button" class="btn-render-action btn-render-delete" onclick="window.deleteSavedJob('${job.job_id}')">🗑️ Delete Record</button>
                     `;
                 }
 
@@ -1315,6 +1395,44 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         } catch (e) {
             alert("Error deleting job: " + e.message);
+        }
+    };
+
+    window.cancelJob = async (jobId) => {
+        if (!confirm("Are you sure you want to cancel this render?")) return;
+        try {
+            const res = await fetch(`/api/jobs/${jobId}/cancel`, {
+                method: "POST",
+                headers: getAuthHeaders()
+            });
+            const data = await res.json();
+            if (localStorage.getItem("cr_active_job_id") === jobId) {
+                localStorage.removeItem("cr_active_job_id");
+                progressCard.style.display = "none";
+                configCard.style.display = "block";
+            }
+            loadMyRenders();
+            if (typeof refreshMyRendersCount === "function") refreshMyRendersCount();
+        } catch (e) {
+            alert("Error cancelling job: " + e.message);
+        }
+    };
+
+    window.cancelBatch = async (batchId) => {
+        if (!confirm("Are you sure you want to cancel ALL queued and active parts for this video?")) return;
+        try {
+            const res = await fetch(`/api/batches/${batchId}/cancel`, {
+                method: "POST",
+                headers: getAuthHeaders()
+            });
+            const data = await res.json();
+            localStorage.removeItem("cr_active_job_id");
+            progressCard.style.display = "none";
+            configCard.style.display = "block";
+            loadMyRenders();
+            if (typeof refreshMyRendersCount === "function") refreshMyRendersCount();
+        } catch (e) {
+            alert("Error cancelling batch: " + e.message);
         }
     };
 

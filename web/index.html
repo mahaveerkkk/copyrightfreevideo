@@ -153,6 +153,26 @@
                             <input type="range" id="sliderStart" class="yt-range-slider" min="0" max="100" value="0">
                             <input type="range" id="sliderEnd" class="yt-range-slider" min="0" max="100" value="100">
                         </div>
+
+                        <!-- Multi-Part Auto-Splitter -->
+                        <div class="split-mode-box">
+                            <div class="split-header">
+                                <span class="split-icon">🎬</span>
+                                <div class="split-label-group">
+                                    <span class="split-title">Multi-Part Auto-Splitter</span>
+                                    <span class="split-desc">Divide long video into continuous parts (safe on server, fast downloads)</span>
+                                </div>
+                            </div>
+                            <div class="split-pill-group" id="splitPillGroup">
+                                <button type="button" class="split-pill active" data-split="0">Single Clip</button>
+                                <button type="button" class="split-pill" data-split="5">5 Min Parts</button>
+                                <button type="button" class="split-pill" data-split="10">10 Min Parts</button>
+                                <button type="button" class="split-pill" data-split="15">15 Min Parts</button>
+                            </div>
+                            <div class="split-calc-hint" id="splitCalcHint" style="display: none;">
+                                💡 Will auto-generate parts in background queue.
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -463,6 +483,13 @@
                 <div id="failureActionRow" style="display: none; margin-top: 1.2rem; text-align: center;">
                     <button type="button" class="btn-reset" id="btnRetryFailed" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
                         🔄 Try Again / Back to Studio
+                    </button>
+                </div>
+
+                <!-- Live Cancellation Button -->
+                <div id="liveCancelActionRow" style="margin-top: 1.2rem; text-align: center;">
+                    <button type="button" class="btn-cancel-live" id="btnCancelActiveJob">
+                        🛑 Cancel Render
                     </button>
                 </div>
             </div>

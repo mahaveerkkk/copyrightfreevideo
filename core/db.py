@@ -65,11 +65,17 @@ def init_db():
                 original_meta TEXT,
                 transformed_meta TEXT,
                 elapsed_seconds REAL,
+                batch_id TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
             )
         """)
+        # Safe migration for existing SQLite DB
+        try:
+            cursor.execute("ALTER TABLE render_jobs ADD COLUMN batch_id TEXT")
+        except Exception:
+            pass
         conn.commit()
 
 # --- Password Hashing & Auth ---
@@ -168,20 +174,22 @@ def db_save_job(
     mode: str,
     status: str = "queued",
     message: str = "Enqueued in processing pipeline",
-    download_url: Optional[str] = None
+    download_url: Optional[str] = None,
+    batch_id: Optional[str] = None
 ):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO render_jobs (
-                job_id, user_id, filename, preset, mode, status, progress, message, download_url, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 0.0, ?, ?, CURRENT_TIMESTAMP)
+                job_id, user_id, filename, preset, mode, status, progress, message, download_url, batch_id, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 0.0, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(job_id) DO UPDATE SET
                 status = excluded.status,
                 message = excluded.message,
                 download_url = excluded.download_url,
+                batch_id = COALESCE(excluded.batch_id, render_jobs.batch_id),
                 updated_at = CURRENT_TIMESTAMP
-        """, (job_id, user_id, filename, preset, mode, status, message, download_url))
+        """, (job_id, user_id, filename, preset, mode, status, message, download_url, batch_id))
         conn.commit()
 
 def db_update_job_status(
@@ -238,12 +246,12 @@ def db_get_job(job_id: str) -> Optional[Dict[str, Any]]:
             except Exception: pass
         return res
 
-def db_get_user_jobs(user_id: int, limit: int = 30) -> List[Dict[str, Any]]:
+def db_get_user_jobs(user_id: int, limit: int = 50) -> List[Dict[str, Any]]:
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT job_id, filename, preset, mode, status, progress, message, download_url, 
-                   elapsed_seconds, error, created_at, updated_at
+                   elapsed_seconds, error, batch_id, created_at, updated_at
             FROM render_jobs
             WHERE user_id = ?
             ORDER BY created_at DESC

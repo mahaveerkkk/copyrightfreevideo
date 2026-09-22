@@ -19,6 +19,8 @@ from core.metadata_cleaner import get_clean_metadata_args, probe_video
 from core.stem_separator import isolate_dialogue_and_swap_bgm
 from core.split_canvas import build_split_screen_filter, CANVAS_FILE
 
+ACTIVE_PROCESSES: Dict[str, subprocess.Popen] = {}
+
 class VideoTransformer:
     def __init__(self, ffmpeg_bin: str = "ffmpeg"):
         self.ffmpeg_bin = ffmpeg_bin
@@ -30,7 +32,8 @@ class VideoTransformer:
         preset_id: str = "stealth_deep",
         mode: str = "turbo",
         custom_overrides: Optional[dict] = None,
-        progress_callback: Optional[Callable[[float, str], None]] = None
+        progress_callback: Optional[Callable[[float, str], None]] = None,
+        job_id: Optional[str] = None
     ) -> Dict[str, Any]:
         if not os.path.exists(input_path):
             raise FileNotFoundError(f"Input video not found: {input_path}")
@@ -184,39 +187,45 @@ class VideoTransformer:
             text=True,
             bufsize=1
         )
+        if job_id:
+            ACTIVE_PROCESSES[job_id] = process
         
-        # Drain stderr concurrently in background thread to prevent OS pipe deadlock
-        stderr_buffer = []
-        def _drain_stderr():
-            try:
-                for err_line in process.stderr:
-                    stderr_buffer.append(err_line)
-                    if len(stderr_buffer) > 200:
-                        stderr_buffer.pop(0)
-            except Exception:
-                pass
+        try:
+            # Drain stderr concurrently in background thread to prevent OS pipe deadlock
+            stderr_buffer = []
+            def _drain_stderr():
+                try:
+                    for err_line in process.stderr:
+                        stderr_buffer.append(err_line)
+                        if len(stderr_buffer) > 200:
+                            stderr_buffer.pop(0)
+                except Exception:
+                    pass
 
-        stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
-        stderr_thread.start()
+            stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+            stderr_thread.start()
 
-        out_time_ms_pattern = re.compile(r"out_time_ms=(\d+)")
-        
-        while True:
-            line = process.stdout.readline()
-            if not line and process.poll() is not None:
-                break
-            line = line.strip()
-            match = out_time_ms_pattern.search(line)
-            if match and duration > 0:
-                current_ms = int(match.group(1))
-                current_sec = current_ms / 1_000_000.0
-                pct = 60.0 + (min(current_sec / duration, 1.0) * 35.0)
-                if progress_callback:
-                    progress_callback(min(pct, 96.0), f"Transforming frames ({int(pct)}%)...")
-                    
-        stderr_thread.join(timeout=2.0)
-        retcode = process.poll()
-        stderr_text = "".join(stderr_buffer)
+            out_time_ms_pattern = re.compile(r"out_time_ms=(\d+)")
+            
+            while True:
+                line = process.stdout.readline()
+                if not line and process.poll() is not None:
+                    break
+                line = line.strip()
+                match = out_time_ms_pattern.search(line)
+                if match and duration > 0:
+                    current_ms = int(match.group(1))
+                    current_sec = current_ms / 1_000_000.0
+                    pct = 60.0 + (min(current_sec / duration, 1.0) * 35.0)
+                    if progress_callback:
+                        progress_callback(min(pct, 96.0), f"Transforming frames ({int(pct)}%)...")
+                        
+            stderr_thread.join(timeout=2.0)
+            retcode = process.poll()
+            stderr_text = "".join(stderr_buffer)
+        finally:
+            if job_id and job_id in ACTIVE_PROCESSES:
+                ACTIVE_PROCESSES.pop(job_id, None)
         
         # Clean up intermediate temporary files
         try:

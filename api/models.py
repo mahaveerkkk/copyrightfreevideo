@@ -20,3 +20,5 @@ class JobResponse(BaseModel):
     transformed_meta: Optional[Dict[str, Any]] = None
     elapsed_seconds: Optional[float] = None
     error: Optional[str] = None
+    batch_id: Optional[str] = None
+    parts_count: Optional[int] = None

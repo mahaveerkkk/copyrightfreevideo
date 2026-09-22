@@ -1,15 +1,17 @@
 """
 Job Queue Manager.
-Supports both in-memory async execution and SQLite persistence across server restarts / browser closes.
-Supports Dual-Engine Modes: 'turbo' and 'ai_deep'.
+Supports in-memory async execution, SQLite persistence across server restarts / browser closes,
+interactive cancellation, and automatic multi-part batch splitting.
 """
 
 import os
+import uuid
+import shutil
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Any, Optional
-from core.engine import VideoTransformer
+from typing import Dict, Any, Optional, List
+from core.engine import VideoTransformer, ACTIVE_PROCESSES
 from api.models import JobStatus
-from core.db import db_save_job, db_update_job_status, db_get_job
+from core.db import db_save_job, db_update_job_status, db_get_job, get_db_connection
 
 # Use serial execution (1 worker) on 1GB RAM servers to prevent FFmpeg OOM crash
 _executor = ThreadPoolExecutor(max_workers=1)
@@ -38,7 +40,8 @@ def get_job_state(job_id: str) -> Optional[Dict[str, Any]]:
             "download_url": db_job.get("download_url"),
             "original_meta": db_job.get("original_meta"),
             "transformed_meta": db_job.get("transformed_meta"),
-            "elapsed_seconds": db_job.get("elapsed_seconds")
+            "elapsed_seconds": db_job.get("elapsed_seconds"),
+            "batch_id": db_job.get("batch_id")
         }
         return JOBS_STORE[job_id]
     return None
@@ -86,7 +89,59 @@ def update_job_status(
     except Exception as dbe:
         print(f"DB update error for {job_id}: {dbe}")
 
+def cancel_job(job_id: str) -> bool:
+    """Terminates active rendering subprocess, updates status to cancelled, and purges partial files."""
+    # 1. Terminate subprocess if active
+    proc = ACTIVE_PROCESSES.get(job_id)
+    if proc:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        ACTIVE_PROCESSES.pop(job_id, None)
+
+    # 2. Update status to cancelled in memory and DB
+    update_job_status(
+        job_id=job_id,
+        progress=0.0,
+        message="🛑 Job cancelled by user",
+        status=JobStatus.FAILED,
+        error="Cancelled by user"
+    )
+
+    # 3. Purge partial files from disk
+    from api.config import OUTPUT_DIR, INPUT_DIR, TEMP_DIR
+    for folder in [OUTPUT_DIR, INPUT_DIR, TEMP_DIR]:
+        if not os.path.exists(folder): continue
+        for f in os.listdir(folder):
+            if job_id in f:
+                try:
+                    fpath = os.path.join(folder, f)
+                    if os.path.isfile(fpath): os.remove(fpath)
+                    elif os.path.isdir(fpath): shutil.rmtree(fpath, ignore_errors=True)
+                except Exception:
+                    pass
+    return True
+
+def cancel_batch(batch_id: str) -> int:
+    """Cancels all queued or running jobs associated with a batch."""
+    cancelled_count = 0
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT job_id FROM render_jobs WHERE batch_id = ? AND status IN ('queued', 'processing')", (batch_id,))
+        rows = cursor.fetchall()
+        for r in rows:
+            jid = r["job_id"]
+            cancel_job(jid)
+            cancelled_count += 1
+    return cancelled_count
+
 def _sync_worker(job_id: str, input_path: str, output_path: str, preset_id: str, mode: str = "turbo", custom_overrides: Optional[dict] = None):
+    # Check if cancelled before execution
+    cur = JOBS_STORE.get(job_id)
+    if cur and (str(cur.get("status")) in ["failed", "JobStatus.FAILED"] or "cancelled" in str(cur.get("message", "")).lower()):
+        return
+
     try:
         prefix = "⚡ Turbo DSP" if mode == "turbo" else "🧠 AI Deep Studio"
         update_job_status(job_id, 5.0, f"Starting {prefix} transformation engine...", JobStatus.PROCESSING)
@@ -100,7 +155,8 @@ def _sync_worker(job_id: str, input_path: str, output_path: str, preset_id: str,
             preset_id=preset_id,
             mode=mode,
             custom_overrides=custom_overrides,
-            progress_callback=on_progress
+            progress_callback=on_progress,
+            job_id=job_id
         )
         
         update_job_status(
@@ -115,6 +171,10 @@ def _sync_worker(job_id: str, input_path: str, output_path: str, preset_id: str,
         )
         
     except Exception as e:
+        # If cancelled, do not overwrite cancelled message
+        cur = JOBS_STORE.get(job_id)
+        if cur and "cancelled" in str(cur.get("message", "")).lower():
+            return
         update_job_status(
             job_id=job_id,
             progress=0.0,
@@ -131,7 +191,8 @@ def submit_job(
     mode: str = "turbo",
     custom_overrides: Optional[dict] = None,
     user_id: Optional[int] = None,
-    filename: Optional[str] = None
+    filename: Optional[str] = None,
+    batch_id: Optional[str] = None
 ):
     fn = filename or os.path.basename(input_path)
     JOBS_STORE[job_id] = {
@@ -149,10 +210,11 @@ def submit_job(
         "download_url": None,
         "original_meta": None,
         "transformed_meta": None,
-        "elapsed_seconds": None
+        "elapsed_seconds": None,
+        "batch_id": batch_id
     }
     try:
-        db_save_job(job_id, user_id, fn, preset_id, mode, status="queued")
+        db_save_job(job_id, user_id, fn, preset_id, mode, status="queued", batch_id=batch_id)
     except Exception as e:
         print(f"DB save error for {job_id}: {e}")
     
@@ -169,6 +231,11 @@ def _youtube_worker(
     mode: str = "turbo",
     custom_overrides: Optional[dict] = None
 ):
+    # Check if cancelled before execution
+    cur = JOBS_STORE.get(job_id)
+    if cur and (str(cur.get("status")) in ["failed", "JobStatus.FAILED"] or "cancelled" in str(cur.get("message", "")).lower()):
+        return
+
     try:
         from core.youtube_service import download_and_trim_youtube
         update_job_status(job_id, 5.0, "Connecting to stream and capturing clip...", JobStatus.PROCESSING)
@@ -183,6 +250,11 @@ def _youtube_worker(
             end_sec=end_sec,
             progress_callback=on_download_progress
         )
+
+        # Check again if cancelled during download
+        cur = JOBS_STORE.get(job_id)
+        if cur and "cancelled" in str(cur.get("message", "")).lower():
+            return
         
         prefix = "⚡ Turbo DSP" if mode == "turbo" else "🧠 AI Deep Studio"
         update_job_status(job_id, 40.0, f"Stream clip captured! Running {prefix} transformation...", JobStatus.PROCESSING)
@@ -197,7 +269,8 @@ def _youtube_worker(
             preset_id=preset_id,
             mode=mode,
             custom_overrides=custom_overrides,
-            progress_callback=on_transform_progress
+            progress_callback=on_transform_progress,
+            job_id=job_id
         )
         
         update_job_status(
@@ -212,6 +285,9 @@ def _youtube_worker(
         )
         
     except Exception as e:
+        cur = JOBS_STORE.get(job_id)
+        if cur and "cancelled" in str(cur.get("message", "")).lower():
+            return
         update_job_status(
             job_id=job_id,
             progress=0.0,
@@ -231,7 +307,8 @@ def submit_youtube_job(
     mode: str = "turbo",
     custom_overrides: Optional[dict] = None,
     user_id: Optional[int] = None,
-    title: Optional[str] = None
+    title: Optional[str] = None,
+    batch_id: Optional[str] = None
 ):
     fn = title or f"Stream_{job_id[:6]}.mp4"
     JOBS_STORE[job_id] = {
@@ -249,10 +326,11 @@ def submit_youtube_job(
         "download_url": None,
         "original_meta": None,
         "transformed_meta": None,
-        "elapsed_seconds": None
+        "elapsed_seconds": None,
+        "batch_id": batch_id
     }
     try:
-        db_save_job(job_id, user_id, fn, preset_id, mode, status="queued")
+        db_save_job(job_id, user_id, fn, preset_id, mode, status="queued", batch_id=batch_id)
     except Exception as e:
         print(f"DB save error for {job_id}: {e}")
     
@@ -268,3 +346,72 @@ def submit_youtube_job(
         mode,
         custom_overrides
     )
+
+def submit_batch_youtube_jobs(
+    batch_id: str,
+    youtube_url: str,
+    base_title: str,
+    start_sec: float,
+    end_sec: float,
+    split_minutes: int,
+    preset_id: str,
+    mode: str = "turbo",
+    custom_overrides: Optional[dict] = None,
+    user_id: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """
+    Splits long video into sequential 5-15 minute chapters / parts.
+    Enqueues them one-by-one into the serial queue for safe execution without OOM.
+    """
+    from api.config import INPUT_DIR, OUTPUT_DIR
+
+    chunk_sec = float(split_minutes) * 60.0
+    cur_start = max(0.0, float(start_sec))
+    total_end = float(end_sec)
+
+    clean_base = base_title or "Movie"
+    if clean_base.lower().endswith(".mp4"):
+        clean_base = clean_base[:-4]
+
+    jobs = []
+    part_num = 1
+
+    while cur_start < total_end:
+        cur_end = min(cur_start + chunk_sec, total_end)
+        # Avoid tiny residual slice (e.g. less than 20 seconds) by merging with previous if small
+        if (total_end - cur_end) < 20.0 and cur_end < total_end:
+            cur_end = total_end
+
+        job_id = str(uuid.uuid4())
+        part_title = f"{clean_base} - Part {part_num}"
+        input_path = os.path.join(INPUT_DIR, f"yt_{job_id}.mp4")
+        output_path = os.path.join(OUTPUT_DIR, f"safe_{job_id}.mp4")
+
+        submit_youtube_job(
+            job_id=job_id,
+            youtube_url=youtube_url,
+            input_path=input_path,
+            output_path=output_path,
+            start_sec=cur_start,
+            end_sec=cur_end,
+            preset_id=preset_id,
+            mode=mode,
+            custom_overrides=custom_overrides,
+            user_id=user_id,
+            title=part_title,
+            batch_id=batch_id
+        )
+
+        jobs.append({
+            "job_id": job_id,
+            "part_num": part_num,
+            "title": part_title,
+            "start_sec": cur_start,
+            "end_sec": cur_end,
+            "duration": cur_end - cur_start
+        })
+
+        part_num += 1
+        cur_start = cur_end
+
+    return jobs

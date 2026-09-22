@@ -307,6 +307,7 @@ async def process_youtube_video(
     mode: str = Form("turbo"),
     custom_settings: Optional[str] = Form(None),
     video_title: Optional[str] = Form(None),
+    split_minutes: int = Form(0),
     authorization: Optional[str] = Header(None),
     cr_session: Optional[str] = Cookie(None)
 ):
@@ -334,10 +335,39 @@ async def process_youtube_video(
         except Exception:
             custom_overrides = None
 
+    display_title = video_title or f"Stream_{uuid.uuid4().hex[:6]}.mp4"
+
+    # Multi-Part Batch Auto-Splitter
+    if split_minutes and split_minutes > 0 and end_sec and (float(end_sec) - float(start_sec)) > (float(split_minutes) * 60.0):
+        from workers.manager import submit_batch_youtube_jobs
+        batch_id = str(uuid.uuid4())
+        jobs = submit_batch_youtube_jobs(
+            batch_id=batch_id,
+            youtube_url=url,
+            base_title=display_title,
+            start_sec=float(start_sec),
+            end_sec=float(end_sec),
+            split_minutes=int(split_minutes),
+            preset_id=preset,
+            mode=mode,
+            custom_overrides=custom_overrides,
+            user_id=user_id
+        )
+        first_job = jobs[0]
+        return JobResponse(
+            job_id=first_job["job_id"],
+            filename=first_job["title"],
+            status=JobStatus.QUEUED,
+            progress=0.0,
+            message=f"Enqueued {len(jobs)} parts into background pipeline! Part 1 is starting...",
+            preset=preset,
+            batch_id=batch_id,
+            parts_count=len(jobs)
+        )
+
     job_id = str(uuid.uuid4())
     input_path = os.path.join(INPUT_DIR, f"yt_{job_id}.mp4")
     output_path = os.path.join(OUTPUT_DIR, f"safe_{job_id}.mp4")
-    display_title = video_title or f"Stream_{job_id[:6]}.mp4"
 
     submit_youtube_job(
         job_id=job_id,
@@ -361,6 +391,19 @@ async def process_youtube_video(
         message="Connecting to stream & queuing transformation...",
         preset=preset
     )
+
+# 0.6 Cancellation Endpoints
+@router.post("/jobs/{job_id}/cancel")
+async def api_cancel_job(job_id: str):
+    from workers.manager import cancel_job
+    success = cancel_job(job_id)
+    return {"status": "ok", "cancelled": success, "message": f"Job {job_id} cancelled successfully"}
+
+@router.post("/batches/{batch_id}/cancel")
+async def api_cancel_batch(batch_id: str):
+    from workers.manager import cancel_batch
+    count = cancel_batch(batch_id)
+    return {"status": "ok", "cancelled_count": count, "message": f"{count} parts in batch cancelled"}
 
 # 1. Chunked Upload: Initialize
 @router.post("/upload/init")
