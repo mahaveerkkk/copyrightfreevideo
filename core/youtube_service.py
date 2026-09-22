@@ -304,10 +304,11 @@ def download_and_trim_youtube(
             "-t", str(clip_duration),
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
             "-af", "aresample=async=1000:first_pts=0",
+            "-map", "0:v:0", "-map", "0:a:0?",
             "-avoid_negative_ts", "make_zero",
             output_path
         ]
-        subprocess.run(cmd_fallback, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        subprocess.run(cmd_fallback, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
 
     if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
         raise RuntimeError("Failed to generate trimmed video file from YouTube stream.")

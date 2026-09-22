@@ -157,7 +157,7 @@ class VideoTransformer:
                 audio_filters += ",aresample=async=1000:min_hard_comp=0.100000:first_pts=0"
             cmd.extend([
                 "-af", audio_filters,
-                "-map", "0:a:0",
+                "-map", "0:a:0?",
                 "-c:a", "aac",
                 "-b:a", "192k",
                 "-ar", "44100"
