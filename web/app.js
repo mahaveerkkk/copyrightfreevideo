@@ -756,6 +756,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const compRes = await fetch("/api/upload/complete", {
             method: "POST",
+            headers: getAuthHeaders(),
             body: compForm
         });
 
@@ -820,10 +821,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 ytForm.append("end_sec", trimRange.end);
                 ytForm.append("preset", selectedPreset);
                 ytForm.append("mode", activeMode);
+                ytForm.append("video_title", ytVideoData.title || "");
                 ytForm.append("custom_settings", JSON.stringify(customSettings));
 
                 const ytRes = await fetch("/api/youtube/process", {
                     method: "POST",
+                    headers: getAuthHeaders(),
                     body: ytForm
                 });
 
@@ -870,6 +873,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function subscribeJobStream(jobId) {
         if (activeEventSource) activeEventSource.close();
+        localStorage.setItem("cr_active_job_id", jobId);
 
         activeEventSource = new EventSource(`/api/jobs/${jobId}/stream`);
 
@@ -884,6 +888,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (data.status === "completed") {
                 activeEventSource.close();
                 showCompleted(jobId, data);
+                if (typeof refreshMyRendersCount === "function") refreshMyRendersCount();
             } else if (data.status === "failed") {
                 activeEventSource.close();
                 mainStatusText.innerText = "Pipeline Terminated";
@@ -907,6 +912,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     if (data.status === "completed") {
                         clearInterval(poller);
                         showCompleted(jobId, data);
+                        if (typeof refreshMyRendersCount === "function") refreshMyRendersCount();
                     } else if (data.status === "failed") {
                         clearInterval(poller);
                         mainStatusText.innerText = "Failed";
@@ -927,6 +933,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (failRow) failRow.style.display = "none";
             progressCard.style.display = "none";
             configCard.style.display = "block";
+            localStorage.removeItem("cr_active_job_id");
         });
     }
 
@@ -949,10 +956,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const cleanTitle = (ytVideoData.title || 'youtube_video').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
                 safeDownloadName = `safe_${cleanTitle}.mp4`;
             } else if (selectedFile) {
-                safeDownloadName = `safe_${selectedFile.name}`;
+                const nameWithoutExt = selectedFile.name.substring(0, selectedFile.name.lastIndexOf('.')) || selectedFile.name;
+                safeDownloadName = `safe_${nameWithoutExt.replace(/[^a-zA-Z0-9_-]/g, '_')}.mp4`;
             }
-            downloadSafeBtn.setAttribute("download", safeDownloadName);
-        }, 500);
+            downloadSafeBtn.download = safeDownloadName;
+
+            logTerminal(`[DONE] Video ready for publishing!`);
+        }, 600);
     }
 
     // 6. Player Tab Switcher (Single vs Dual)
@@ -982,6 +992,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 7. Restart
     restartBtn.addEventListener("click", () => {
+        localStorage.removeItem("cr_active_job_id");
         progressCard.style.display = "none";
         configCard.style.display = "block";
         fileInput.value = "";
@@ -999,4 +1010,319 @@ document.addEventListener("DOMContentLoaded", async () => {
         ytDetailsCard.style.display = "none";
         updateButtonLabel();
     });
+
+    // ================= AUTH & PERSISTENT SESSION RECOVERY =================
+    const btnOpenAuth = document.getElementById("btnOpenAuth");
+    const authModal = document.getElementById("authModal");
+    const btnCloseAuth = document.getElementById("btnCloseAuth");
+    const tabAuthLogin = document.getElementById("tabAuthLogin");
+    const tabAuthRegister = document.getElementById("tabAuthRegister");
+    const authForm = document.getElementById("authForm");
+    const authUsername = document.getElementById("authUsername");
+    const authPassword = document.getElementById("authPassword");
+    const authError = document.getElementById("authError");
+    const btnAuthSubmit = document.getElementById("btnAuthSubmit");
+    const authModalTitle = document.getElementById("authModalTitle");
+
+    const userChip = document.getElementById("userChip");
+    const userNameLabel = document.getElementById("userNameLabel");
+    const btnLogout = document.getElementById("btnLogout");
+    const btnOpenMyRenders = document.getElementById("btnOpenMyRenders");
+    const renderCountBadge = document.getElementById("renderCountBadge");
+
+    const rendersModal = document.getElementById("rendersModal");
+    const btnCloseRenders = document.getElementById("btnCloseRenders");
+    const rendersListContainer = document.getElementById("rendersListContainer");
+    const btnRefreshRenders = document.getElementById("btnRefreshRenders");
+
+    let authMode = "login"; // 'login' or 'register'
+    let currentUser = null;
+
+    function getAuthHeaders() {
+        const token = localStorage.getItem("cr_token");
+        return token ? { "Authorization": `Bearer ${token}` } : {};
+    }
+
+    async function checkCurrentUser() {
+        try {
+            const res = await fetch("/api/auth/me", {
+                headers: getAuthHeaders()
+            });
+            const data = await res.json();
+            if (data.authenticated && data.user) {
+                currentUser = data.user;
+                updateAuthUI(true, currentUser.username);
+                refreshMyRendersCount();
+            } else {
+                currentUser = null;
+                updateAuthUI(false);
+            }
+        } catch (e) {
+            console.error("Auth check failed:", e);
+        }
+    }
+
+    function updateAuthUI(isLoggedIn, username = "") {
+        if (!btnOpenAuth) return;
+        if (isLoggedIn) {
+            btnOpenAuth.style.display = "none";
+            if (userChip) userChip.style.display = "flex";
+            if (btnOpenMyRenders) btnOpenMyRenders.style.display = "flex";
+            if (userNameLabel) userNameLabel.innerText = `👤 ${username}`;
+        } else {
+            btnOpenAuth.style.display = "block";
+            if (userChip) userChip.style.display = "none";
+            if (btnOpenMyRenders) btnOpenMyRenders.style.display = "none";
+        }
+    }
+
+    async function refreshMyRendersCount() {
+        if (!currentUser) return;
+        try {
+            const res = await fetch("/api/my-renders", {
+                headers: getAuthHeaders()
+            });
+            const data = await res.json();
+            if (data.status === "ok" && data.jobs && renderCountBadge) {
+                renderCountBadge.innerText = data.jobs.length;
+            }
+        } catch (e) {
+            console.error("Renders count check failed:", e);
+        }
+    }
+
+    if (btnOpenAuth) {
+        btnOpenAuth.addEventListener("click", () => {
+            if (authModal) {
+                authModal.style.display = "flex";
+                if (authError) authError.style.display = "none";
+            }
+        });
+    }
+
+    if (btnCloseAuth) {
+        btnCloseAuth.addEventListener("click", () => {
+            if (authModal) authModal.style.display = "none";
+        });
+    }
+
+    if (tabAuthLogin) {
+        tabAuthLogin.addEventListener("click", () => {
+            authMode = "login";
+            tabAuthLogin.classList.add("active");
+            if (tabAuthRegister) tabAuthRegister.classList.remove("active");
+            if (btnAuthSubmit) btnAuthSubmit.innerText = "Sign In to Studio";
+            if (authModalTitle) authModalTitle.innerText = "Sign In to CR-SHIELD";
+            if (authError) authError.style.display = "none";
+        });
+    }
+
+    if (tabAuthRegister) {
+        tabAuthRegister.addEventListener("click", () => {
+            authMode = "register";
+            tabAuthRegister.classList.add("active");
+            if (tabAuthLogin) tabAuthLogin.classList.remove("active");
+            if (btnAuthSubmit) btnAuthSubmit.innerText = "Create Account";
+            if (authModalTitle) authModalTitle.innerText = "Create Your Account";
+            if (authError) authError.style.display = "none";
+        });
+    }
+
+    if (authForm) {
+        authForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const uname = authUsername.value.trim();
+            const pword = authPassword.value;
+            if (!uname || !pword) return;
+
+            btnAuthSubmit.innerText = "Please wait...";
+            btnAuthSubmit.disabled = true;
+            if (authError) authError.style.display = "none";
+
+            try {
+                const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
+                const formData = new FormData();
+                formData.append("username", uname);
+                formData.append("password", pword);
+
+                const res = await fetch(endpoint, {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.detail || "Authentication failed");
+                }
+
+                if (data.token) {
+                    localStorage.setItem("cr_token", data.token);
+                }
+                currentUser = data.user;
+                updateAuthUI(true, currentUser.username);
+                authModal.style.display = "none";
+                authPassword.value = "";
+                refreshMyRendersCount();
+            } catch (err) {
+                if (authError) {
+                    authError.innerText = err.message;
+                    authError.style.display = "block";
+                }
+            } finally {
+                btnAuthSubmit.innerText = authMode === "login" ? "Sign In to Studio" : "Create Account";
+                btnAuthSubmit.disabled = false;
+            }
+        });
+    }
+
+    if (btnLogout) {
+        btnLogout.addEventListener("click", async () => {
+            try {
+                await fetch("/api/auth/logout", {
+                    method: "POST",
+                    headers: getAuthHeaders()
+                });
+            } catch {}
+            localStorage.removeItem("cr_token");
+            currentUser = null;
+            updateAuthUI(false);
+        });
+    }
+
+    if (btnOpenMyRenders) {
+        btnOpenMyRenders.addEventListener("click", () => {
+            if (rendersModal) rendersModal.style.display = "flex";
+            loadMyRenders();
+        });
+    }
+
+    if (btnCloseRenders) {
+        btnCloseRenders.addEventListener("click", () => {
+            if (rendersModal) rendersModal.style.display = "none";
+        });
+    }
+
+    if (btnRefreshRenders) {
+        btnRefreshRenders.addEventListener("click", loadMyRenders);
+    }
+
+    async function loadMyRenders() {
+        if (!rendersListContainer) return;
+        rendersListContainer.innerHTML = '<div class="renders-empty-state"><span class="empty-icon">⏳</span><p>Fetching your cloud renders...</p></div>';
+        try {
+            const res = await fetch("/api/my-renders", {
+                headers: getAuthHeaders()
+            });
+            const data = await res.json();
+            if (!res.ok || !data.jobs || data.jobs.length === 0) {
+                rendersListContainer.innerHTML = '<div class="renders-empty-state"><span class="empty-icon">🎬</span><p>No renders found yet. Start a video or stream clip to save it here!</p></div>';
+                if (renderCountBadge) renderCountBadge.innerText = "0";
+                return;
+            }
+
+            if (renderCountBadge) renderCountBadge.innerText = data.jobs.length;
+            rendersListContainer.innerHTML = "";
+
+            data.jobs.forEach(job => {
+                const card = document.createElement("div");
+                card.className = "render-item-card";
+
+                const isDone = job.status === "completed";
+                const isProc = job.status === "processing";
+                const badgeClass = job.status;
+
+                let actionHtml = "";
+                if (isDone) {
+                    actionHtml = `
+                        <a href="/api/download/${job.job_id}" class="btn-render-action btn-render-download" download>⬇️ Download MP4</a>
+                        <button type="button" class="btn-render-action btn-render-live" onclick="window.previewSavedJob('${job.job_id}')">🎬 View Player</button>
+                    `;
+                } else if (isProc) {
+                    actionHtml = `
+                        <button type="button" class="btn-render-action btn-render-live" onclick="window.reconnectJob('${job.job_id}')">⚡ View Live Progress</button>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="render-item-header">
+                        <span class="render-item-title">${escapeHtml(job.filename || 'Untitled Video')}</span>
+                        <span class="render-badge-status ${badgeClass}">${job.status}</span>
+                    </div>
+                    <div class="render-meta-row">
+                        <span>Preset: <strong>${job.preset}</strong> (${job.mode})</span>
+                        <span>${job.progress ? Math.round(job.progress) + '%' : ''} • ${job.created_at ? job.created_at.slice(0, 16).replace('T', ' ') : ''}</span>
+                    </div>
+                    ${job.message ? `<div style="font-size:0.72rem; color:#94a3b8;">${escapeHtml(job.message)}</div>` : ''}
+                    ${actionHtml ? `<div class="render-item-actions">${actionHtml}</div>` : ''}
+                `;
+                rendersListContainer.appendChild(card);
+            });
+        } catch (err) {
+            rendersListContainer.innerHTML = `<div class="renders-empty-state" style="color:#fca5a5;"><p>Failed to load renders: ${err.message}</p></div>`;
+        }
+    }
+
+    function escapeHtml(str) {
+        return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    // Global window handlers for render actions
+    window.previewSavedJob = (jobId) => {
+        if (rendersModal) rendersModal.style.display = "none";
+        configCard.style.display = "none";
+        progressCard.style.display = "block";
+        processingView.style.display = "none";
+        completedView.style.display = "block";
+
+        const downloadUrl = `/api/download/${jobId}`;
+        finalVideoPlayer.src = downloadUrl;
+        dualCleanPlayer.src = downloadUrl;
+        downloadSafeBtn.href = downloadUrl;
+        downloadSafeBtn.download = `safe_${jobId.slice(0,8)}.mp4`;
+    };
+
+    window.reconnectJob = (jobId) => {
+        if (rendersModal) rendersModal.style.display = "none";
+        configCard.style.display = "none";
+        progressCard.style.display = "block";
+        processingView.style.display = "block";
+        completedView.style.display = "none";
+        subscribeJobStream(jobId);
+    };
+
+    // Auto-Resume Active Job on Page Load
+    async function checkAndResumeActiveJob() {
+        const savedJobId = localStorage.getItem("cr_active_job_id");
+        if (!savedJobId) return;
+
+        try {
+            const res = await fetch(`/api/jobs/${savedJobId}`);
+            if (!res.ok) {
+                localStorage.removeItem("cr_active_job_id");
+                return;
+            }
+            const data = await res.json();
+            if (data.status === "processing" || data.status === "queued") {
+                configCard.style.display = "none";
+                progressCard.style.display = "block";
+                processingView.style.display = "block";
+                completedView.style.display = "none";
+                progressBar.style.width = `${Math.round(data.progress)}%`;
+                progressPercentLabel.innerText = `${Math.round(data.progress)}%`;
+                mainStatusText.innerText = "Resuming Background Render...";
+                subStatusText.innerText = data.message;
+                subscribeJobStream(savedJobId);
+            } else if (data.status === "completed") {
+                configCard.style.display = "none";
+                progressCard.style.display = "block";
+                showCompleted(savedJobId, data);
+            }
+        } catch {
+            localStorage.removeItem("cr_active_job_id");
+        }
+    }
+
+    // Run auth & recovery on startup
+    checkCurrentUser();
+    checkAndResumeActiveJob();
 });

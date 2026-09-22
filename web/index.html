@@ -25,9 +25,19 @@
                     <p class="brand-subtitle">AI Anti-Copyright & Video Transformer</p>
                 </div>
             </div>
-            <div class="status-chip">
-                <span class="live-dot"></span>
-                <span>Active 2 vCPU</span>
+            <div class="header-right-actions">
+                <button type="button" class="btn-renders-badge" id="btnOpenMyRenders" style="display: none;">
+                    📋 My Renders <span class="badge-count" id="renderCountBadge">0</span>
+                </button>
+                <div class="user-profile-chip" id="userChip" style="display: none;">
+                    <span class="user-name-text" id="userNameLabel">👤 User</span>
+                    <button type="button" class="btn-logout-icon" id="btnLogout" title="Log out">🚪</button>
+                </div>
+                <button type="button" class="btn-auth-trigger" id="btnOpenAuth">👤 Login</button>
+                <div class="status-chip">
+                    <span class="live-dot"></span>
+                    <span>2 vCPU</span>
+                </div>
             </div>
         </div>
     </header>
@@ -521,6 +531,68 @@
     <footer class="app-footer">
         <p>© 2026 CR-SHIELD AI Studio • Powered by Railway Cloud 2 vCPU</p>
     </footer>
+
+    <!-- Auth Modal (Login / Sign Up) -->
+    <div class="modal-overlay" id="authModal" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-brand">
+                    <span class="modal-icon">🔐</span>
+                    <div>
+                        <h3 class="modal-title" id="authModalTitle">CR-SHIELD Account</h3>
+                        <p class="modal-subtitle">Close browser anytime • Renders keep running</p>
+                    </div>
+                </div>
+                <button type="button" class="modal-close" id="btnCloseAuth">✕</button>
+            </div>
+
+            <div class="auth-tabs">
+                <button type="button" class="auth-tab active" id="tabAuthLogin">Sign In</button>
+                <button type="button" class="auth-tab" id="tabAuthRegister">Create Account</button>
+            </div>
+
+            <form id="authForm" class="auth-form">
+                <div class="auth-input-group">
+                    <label for="authUsername">Username</label>
+                    <input type="text" id="authUsername" placeholder="e.g. mahaveer" required autocomplete="username">
+                </div>
+                <div class="auth-input-group">
+                    <label for="authPassword">Password</label>
+                    <input type="password" id="authPassword" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+                <div class="auth-error" id="authError" style="display: none;"></div>
+                <button type="submit" class="btn-auth-submit" id="btnAuthSubmit">Sign In to Studio</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- My Cloud Renders Modal -->
+    <div class="modal-overlay" id="rendersModal" style="display: none;">
+        <div class="modal-card modal-card-wide">
+            <div class="modal-header">
+                <div class="modal-brand">
+                    <span class="modal-icon">📋</span>
+                    <div>
+                        <h3 class="modal-title">My Cloud Renders</h3>
+                        <p class="modal-subtitle">Background render queue & history (saved in cloud database)</p>
+                    </div>
+                </div>
+                <button type="button" class="modal-close" id="btnCloseRenders">✕</button>
+            </div>
+
+            <div class="renders-list-container" id="rendersListContainer">
+                <div class="renders-empty-state">
+                    <span class="empty-icon">⏳</span>
+                    <p>Loading your cloud renders...</p>
+                </div>
+            </div>
+            
+            <div class="renders-footer">
+                <span class="renders-footer-tip">💡 Videos are saved for 24 hours. You can close the tab anytime!</span>
+                <button type="button" class="btn-refresh-renders" id="btnRefreshRenders">🔄 Refresh</button>
+            </div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>

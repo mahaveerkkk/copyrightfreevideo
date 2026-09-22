@@ -4,7 +4,7 @@ import json
 import asyncio
 import shutil
 from typing import Optional
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request, Response, Header, Cookie
 from fastapi.responses import FileResponse, StreamingResponse
 import aiofiles
 
@@ -12,12 +12,124 @@ from api.config import INPUT_DIR, OUTPUT_DIR, TEMP_DIR, ALLOWED_EXTENSIONS
 from api.models import JobResponse, JobStatus
 from core.presets import PRESETS
 from core.youtube_service import get_youtube_info
-from workers.manager import submit_job, submit_youtube_job, JOBS_STORE
+from core.db import (
+    create_user,
+    authenticate_user,
+    create_session,
+    get_user_by_session,
+    delete_session,
+    db_get_user_jobs
+)
+from workers.manager import (
+    submit_job,
+    submit_youtube_job,
+    get_job_state,
+    update_job_status,
+    JOBS_STORE
+)
 
 router = APIRouter()
 
 CHUNKS_BASE_DIR = os.path.join(TEMP_DIR, "chunks")
 os.makedirs(CHUNKS_BASE_DIR, exist_ok=True)
+
+def get_current_user_optional(
+    authorization: Optional[str] = None,
+    cr_session: Optional[str] = None
+) -> Optional[dict]:
+    token = None
+    if isinstance(authorization, str) and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+    elif isinstance(cr_session, str) and cr_session.strip():
+        token = cr_session.strip()
+    
+    if token:
+        return get_user_by_session(token)
+    return None
+
+# ================= AUTHENTICATION ENDPOINTS =================
+
+@router.post("/auth/register")
+async def api_register(
+    response: Response,
+    username: str = Form(...),
+    password: str = Form(...)
+):
+    try:
+        user = create_user(username, password)
+        token = create_session(user["id"])
+        response.set_cookie(
+            key="cr_session",
+            value=token,
+            max_age=30 * 86400,
+            httponly=True,
+            samesite="lax"
+        )
+        return {"status": "ok", "token": token, "user": user}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Registration error: " + str(e))
+
+@router.post("/auth/login")
+async def api_login(
+    response: Response,
+    username: str = Form(...),
+    password: str = Form(...)
+):
+    user = authenticate_user(username, password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    token = create_session(user["id"])
+    response.set_cookie(
+        key="cr_session",
+        value=token,
+        max_age=30 * 86400,
+        httponly=True,
+        samesite="lax"
+    )
+    return {"status": "ok", "token": token, "user": user}
+
+@router.get("/auth/me")
+async def api_auth_me(
+    authorization: Optional[str] = Header(None),
+    cr_session: Optional[str] = Cookie(None)
+):
+    user = get_current_user_optional(authorization, cr_session)
+    if not user:
+        return {"authenticated": False, "user": None}
+    return {"authenticated": True, "user": user}
+
+@router.post("/auth/logout")
+async def api_logout(
+    response: Response,
+    authorization: Optional[str] = Header(None),
+    cr_session: Optional[str] = Cookie(None)
+):
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+    elif cr_session:
+        token = cr_session.strip()
+    if token:
+        delete_session(token)
+    response.delete_cookie("cr_session")
+    return {"status": "ok"}
+
+# ================= USER PERSISTENT RENDERS =================
+
+@router.get("/my-renders")
+async def api_my_renders(
+    authorization: Optional[str] = Header(None),
+    cr_session: Optional[str] = Cookie(None)
+):
+    user = get_current_user_optional(authorization, cr_session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Please login to view your cloud renders")
+    jobs = db_get_user_jobs(user["id"])
+    return {"status": "ok", "user": user, "jobs": jobs}
+
+# ================= CORE ENGINE ENDPOINTS =================
 
 @router.get("/presets")
 async def get_presets():
@@ -59,10 +171,15 @@ async def api_process_lofi_music(
     file: Optional[UploadFile] = File(None),
     style: str = Form("slowed_reverb"),
     speed: float = Form(0.88),
-    reverb_level: float = Form(0.5)
+    reverb_level: float = Form(0.5),
+    authorization: Optional[str] = Header(None),
+    cr_session: Optional[str] = Cookie(None)
 ):
     if not url and not file:
         raise HTTPException(status_code=400, detail="Please provide a YouTube song URL or upload an audio file")
+
+    user = get_current_user_optional(authorization, cr_session)
+    user_id = user["id"] if user else None
 
     is_youtube = bool(url and ("youtube.com" in url or "youtu.be" in url))
     
@@ -70,6 +187,7 @@ async def api_process_lofi_music(
     output_path = os.path.join(OUTPUT_DIR, f"safe_{job_id}.mp4")
     
     input_source = url
+    filename = "Lo-Fi Track.mp3"
     if file:
         ext = os.path.splitext(file.filename)[1].lower() or ".mp3"
         local_input = os.path.join(INPUT_DIR, f"lofi_in_{job_id}{ext}")
@@ -77,39 +195,17 @@ async def api_process_lofi_music(
             while chunk := await file.read(1024 * 1024 * 2):
                 await f.write(chunk)
         input_source = local_input
+        filename = file.filename
         is_youtube = False
 
-    # Background execution for Lo-Fi synthesis
-    def run_lofi_task():
-        from core.lofi_processor import process_music_lofi
-        try:
-            JOBS_STORE[job_id]["status"] = JobStatus.PROCESSING
-            JOBS_STORE[job_id]["message"] = "Generating Copyright-Free Lo-Fi / Slowed Track..."
-            JOBS_STORE[job_id]["progress"] = 20.0
-
-            process_music_lofi(
-                input_source=input_source,
-                output_path=output_path,
-                is_youtube=is_youtube,
-                style=style,
-                speed=speed,
-                reverb_level=reverb_level,
-                progress_callback=lambda p, m: (
-                    JOBS_STORE[job_id].update({"progress": p, "message": m})
-                )
-            )
-
-            JOBS_STORE[job_id]["status"] = JobStatus.COMPLETED
-            JOBS_STORE[job_id]["progress"] = 100.0
-            JOBS_STORE[job_id]["message"] = "Copyright-Free Lo-Fi Track Ready!"
-            JOBS_STORE[job_id]["download_url"] = f"/api/download/{job_id}"
-        except Exception as err:
-            JOBS_STORE[job_id]["status"] = JobStatus.FAILED
-            JOBS_STORE[job_id]["error"] = str(err)
-            JOBS_STORE[job_id]["message"] = f"Lo-Fi generation failed: {str(err)}"
+    # Save to memory and DB
+    from core.db import db_save_job
+    db_save_job(job_id, user_id, filename, "lofi_scrambler", "lofi", status="queued")
 
     JOBS_STORE[job_id] = {
         "job_id": job_id,
+        "user_id": user_id,
+        "filename": filename,
         "input_path": input_source or "Audio Track",
         "output_path": output_path,
         "preset": "lofi_scrambler",
@@ -124,12 +220,44 @@ async def api_process_lofi_music(
         "elapsed_seconds": None
     }
 
+    # Background execution for Lo-Fi synthesis
+    def run_lofi_task():
+        from core.lofi_processor import process_music_lofi
+        try:
+            update_job_status(job_id, 20.0, "Generating Copyright-Free Lo-Fi / Slowed Track...", JobStatus.PROCESSING)
+
+            process_music_lofi(
+                input_source=input_source,
+                output_path=output_path,
+                is_youtube=is_youtube,
+                style=style,
+                speed=speed,
+                reverb_level=reverb_level,
+                progress_callback=lambda p, m: update_job_status(job_id, p, m, JobStatus.PROCESSING)
+            )
+
+            update_job_status(
+                job_id=job_id,
+                progress=100.0,
+                message="Copyright-Free Lo-Fi Track Ready!",
+                status=JobStatus.COMPLETED,
+                download_url=f"/api/download/{job_id}"
+            )
+        except Exception as err:
+            update_job_status(
+                job_id=job_id,
+                progress=0.0,
+                message=f"Lo-Fi generation failed: {str(err)}",
+                status=JobStatus.FAILED,
+                error=str(err)
+            )
+
     import threading
     threading.Thread(target=run_lofi_task, daemon=True).start()
 
     return JobResponse(
         job_id=job_id,
-        filename=f"LoFi_Track_{job_id[:6]}.mp4",
+        filename=filename,
         status=JobStatus.QUEUED,
         progress=0.0,
         message="Enqueued Lo-Fi music transformation pipeline...",
@@ -144,7 +272,10 @@ async def process_youtube_video(
     end_sec: Optional[float] = Form(None),
     preset: str = Form("stealth_deep"),
     mode: str = Form("turbo"),
-    custom_settings: Optional[str] = Form(None)
+    custom_settings: Optional[str] = Form(None),
+    video_title: Optional[str] = Form(None),
+    authorization: Optional[str] = Header(None),
+    cr_session: Optional[str] = Cookie(None)
 ):
     url = url.strip()
     is_yt = ("youtube.com" in url or "youtu.be" in url)
@@ -154,6 +285,9 @@ async def process_youtube_video(
 
     if not url or (not is_yt and not is_direct):
         raise HTTPException(status_code=400, detail="Invalid video URL")
+
+    user = get_current_user_optional(authorization, cr_session)
+    user_id = user["id"] if user else None
 
     if preset not in PRESETS:
         preset = "stealth_deep"
@@ -170,6 +304,7 @@ async def process_youtube_video(
     job_id = str(uuid.uuid4())
     input_path = os.path.join(INPUT_DIR, f"yt_{job_id}.mp4")
     output_path = os.path.join(OUTPUT_DIR, f"safe_{job_id}.mp4")
+    display_title = video_title or f"Stream_{job_id[:6]}.mp4"
 
     submit_youtube_job(
         job_id=job_id,
@@ -180,15 +315,17 @@ async def process_youtube_video(
         end_sec=end_sec,
         preset_id=preset,
         mode=mode,
-        custom_overrides=custom_overrides
+        custom_overrides=custom_overrides,
+        user_id=user_id,
+        title=display_title
     )
 
     return JobResponse(
         job_id=job_id,
-        filename=f"YouTube_{job_id[:6]}.mp4",
+        filename=display_title,
         status=JobStatus.QUEUED,
         progress=0.0,
-        message="Connecting to YouTube stream & queuing transformation...",
+        message="Connecting to stream & queuing transformation...",
         preset=preset
     )
 
@@ -239,11 +376,16 @@ async def complete_chunked_upload(
     filename: str = Form(...),
     preset: str = Form("stealth_deep"),
     mode: str = Form("turbo"),
-    custom_settings: Optional[str] = Form(None)
+    custom_settings: Optional[str] = Form(None),
+    authorization: Optional[str] = Header(None),
+    cr_session: Optional[str] = Cookie(None)
 ):
     upload_dir = os.path.join(CHUNKS_BASE_DIR, upload_id)
     if not os.path.exists(upload_dir):
         raise HTTPException(status_code=404, detail="Upload session not found")
+
+    user = get_current_user_optional(authorization, cr_session)
+    user_id = user["id"] if user else None
 
     ext = os.path.splitext(filename)[1].lower()
     job_id = upload_id
@@ -277,7 +419,16 @@ async def complete_chunked_upload(
         except Exception:
             custom_overrides = None
 
-    submit_job(job_id, final_input_path, final_output_path, preset, mode, custom_overrides)
+    submit_job(
+        job_id=job_id,
+        input_path=final_input_path,
+        output_path=final_output_path,
+        preset_id=preset,
+        mode=mode,
+        custom_overrides=custom_overrides,
+        user_id=user_id,
+        filename=filename
+    )
 
     return JobResponse(
         job_id=job_id,
@@ -294,7 +445,9 @@ async def upload_video(
     file: UploadFile = File(...),
     preset: str = Form("stealth_deep"),
     mode: str = Form("turbo"),
-    custom_settings: Optional[str] = Form(None)
+    custom_settings: Optional[str] = Form(None),
+    authorization: Optional[str] = Header(None),
+    cr_session: Optional[str] = Cookie(None)
 ):
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -303,6 +456,9 @@ async def upload_video(
             detail=f"Unsupported format {ext}. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
         )
         
+    user = get_current_user_optional(authorization, cr_session)
+    user_id = user["id"] if user else None
+
     if preset not in PRESETS:
         preset = "stealth_deep"
     if mode not in ["turbo", "ai_deep"]:
@@ -324,7 +480,16 @@ async def upload_video(
         while chunk := await file.read(1024 * 1024 * 2): # 2MB chunks
             await f.write(chunk)
             
-    submit_job(job_id, input_path, output_path, preset, mode, custom_overrides)
+    submit_job(
+        job_id=job_id,
+        input_path=input_path,
+        output_path=output_path,
+        preset_id=preset,
+        mode=mode,
+        custom_overrides=custom_overrides,
+        user_id=user_id,
+        filename=file.filename
+    )
     
     return JobResponse(
         job_id=job_id,
@@ -337,14 +502,14 @@ async def upload_video(
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
 async def get_job_status(job_id: str):
-    if job_id not in JOBS_STORE:
+    job = get_job_state(job_id)
+    if not job:
         raise HTTPException(status_code=404, detail="Job not found")
         
-    job = JOBS_STORE[job_id]
     return JobResponse(
         job_id=job_id,
-        filename=os.path.basename(job.get("input_path", "video.mp4")),
-        status=job["status"],
+        filename=job.get("filename", os.path.basename(job.get("input_path", "video.mp4"))),
+        status=job["status"] if isinstance(job["status"], JobStatus) else JobStatus(job["status"]),
         progress=job["progress"],
         message=job["message"],
         preset=job["preset"],
@@ -357,25 +522,27 @@ async def get_job_status(job_id: str):
 
 @router.get("/jobs/{job_id}/stream")
 async def stream_job_progress(job_id: str):
-    if job_id not in JOBS_STORE:
+    job = get_job_state(job_id)
+    if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
     async def event_generator():
         while True:
-            if job_id not in JOBS_STORE:
+            cur = get_job_state(job_id)
+            if not cur:
                 break
-            job = JOBS_STORE[job_id]
             
+            st_val = cur["status"].value if hasattr(cur["status"], "value") else str(cur["status"])
             data = json.dumps({
-                "status": job["status"].value,
-                "progress": job["progress"],
-                "message": job["message"],
-                "download_url": job.get("download_url"),
-                "elapsed": job.get("elapsed_seconds")
+                "status": st_val,
+                "progress": cur["progress"],
+                "message": cur["message"],
+                "download_url": cur.get("download_url"),
+                "elapsed": cur.get("elapsed_seconds")
             })
             yield f"data: {data}\n\n"
             
-            if job["status"] in [JobStatus.COMPLETED, JobStatus.FAILED]:
+            if st_val in ["completed", "failed"]:
                 break
             await asyncio.sleep(0.5)
 
@@ -407,7 +574,7 @@ async def health_check():
     total, used, free = shutil.disk_usage(OUTPUT_DIR)
     return {
         "status": "healthy",
-        "active_jobs": len([j for j in JOBS_STORE.values() if j["status"] == JobStatus.PROCESSING]),
+        "active_jobs": len([j for j in JOBS_STORE.values() if str(j.get("status")) in ["processing", "JobStatus.PROCESSING"]]),
         "storage": {
             "free_gb": round(free / (1024**3), 2),
             "total_gb": round(total / (1024**3), 2)

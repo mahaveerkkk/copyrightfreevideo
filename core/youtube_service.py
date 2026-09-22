@@ -37,24 +37,25 @@ def extract_with_client_fallback(url: str, download: bool = False, custom_opts: 
     """
     Extracts video metadata or direct streaming URLs using multi-tier client fallback.
     Prevents 'The page needs to be reloaded' and 'Sign in to confirm you are not a bot' blocks.
-    Tier 1: TV Embedded (best for restricted music/movies, never requires page reload)
-    Tier 2: VisionOS & TV (high compatibility, bypasses web JS bot challenges)
-    Tier 3: Web Creator & MWeb
-    Tier 4: Android & iOS app client
-    Tier 5: Clean fallback without cookies (in case cookies are stale)
+    Tier 1: Android + Web player client (clean, bypasses JS challenges & bot verification)
+    Tier 2: Pure Android client (no cookies, direct CDN playback formats)
+    Tier 3: VisionOS / TV client (cookie-less fallback)
+    Tier 4: Web Creator & MWeb with cookies (for restricted private videos)
+    Tier 5: Standard fallback
     """
+    import shutil
+    node_bin = shutil.which('node') or ('/home/veer/.nvm/versions/node/v24.16.0/bin/node' if os.path.exists('/home/veer/.nvm/versions/node/v24.16.0/bin/node') else None)
+
     client_strategies = [
-        # Strategy 1: TV Embedded (most resilient, bypasses reload errors & bot checks)
-        ({'extractor_args': {'youtube': {'player_client': ['tv_embedded']}}}, True),
-        # Strategy 2: VisionOS & TV
+        # Strategy 1: Android + Web combo (most reliable on Cloud/Railway datacenter IPs)
+        ({'extractor_args': {'youtube': {'player_client': ['android', 'web']}}}, False),
+        # Strategy 2: Pure Android client (no cookies)
+        ({'extractor_args': {'youtube': {'player_client': ['android']}}}, False),
+        # Strategy 3: TV Embedded / VisionOS
         ({'extractor_args': {'youtube': {'player_client': ['visionos', 'tv']}}}, False),
-        # Strategy 3: Web Creator & MWeb
+        # Strategy 4: Web Creator & MWeb with cookies if available
         ({'extractor_args': {'youtube': {'player_client': ['web_creator', 'mweb']}}}, True),
-        # Strategy 4: Android & iOS app client (no cookies because android client rejects cookies)
-        ({'extractor_args': {'youtube': {'player_client': ['android', 'ios']}}}, False),
-        # Strategy 5: Clean TV embedded without cookies
-        ({'extractor_args': {'youtube': {'player_client': ['tv_embedded']}}}, False),
-        # Strategy 6: Standard default
+        # Strategy 5: Standard default
         ({}, False)
     ]
 
@@ -65,6 +66,9 @@ def extract_with_client_fallback(url: str, download: bool = False, custom_opts: 
             'no_warnings': True,
             'socket_timeout': 30,
         }
+        if node_bin:
+            opts['js_runtimes'] = {'node': {'path': node_bin}}
+
         if use_cookies:
             base_cookie_opts = get_base_ydl_opts()
             if 'cookiefile' in base_cookie_opts:
@@ -138,6 +142,36 @@ def get_youtube_info(url: str) -> Dict[str, Any]:
         "is_direct": False
     }
 
+def detect_hindi_or_best_audio_stream(url: str) -> Optional[int]:
+    """
+    Scans media stream tracks for MKV / Dual-Audio movies (9xflix, Filmyfly, HubCloud).
+    Prioritizes Hindi audio track if available, else first audio stream.
+    """
+    try:
+        cmd = [
+            "ffprobe", "-v", "error",
+            "-select_streams", "a",
+            "-show_entries", "stream=index:stream_tags=language,title",
+            "-of", "json",
+            url
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=8)
+        if res.returncode == 0:
+            import json as _json
+            data = _json.loads(res.stdout)
+            streams = data.get("streams", [])
+            for s in streams:
+                tags = s.get("tags", {})
+                lang = str(tags.get("language", "")).lower()
+                title = str(tags.get("title", "")).lower()
+                if "hin" in lang or "hindi" in lang or "hindi" in title:
+                    return s.get("index")
+            if streams:
+                return streams[0].get("index")
+    except Exception:
+        pass
+    return None
+
 def download_and_trim_youtube(
     url: str,
     output_path: str,
@@ -149,6 +183,7 @@ def download_and_trim_youtube(
     Direct HTTP Seek Trimmer:
     Obtains the direct streaming CDN URLs from yt-dlp and uses FFmpeg -ss to capture
     ONLY the target segment. Completes in 4-8s without downloading the rest of the video.
+    Supports MKV Dual-Audio track detection and network drop auto-reconnect.
     """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
@@ -156,7 +191,10 @@ def download_and_trim_youtube(
         progress_callback(10.0, "Resolving direct high-speed stream URLs...")
 
     # Direct Movie Link or YouTube Stream
-    if is_direct_video_link(url):
+    is_direct = is_direct_video_link(url)
+    best_audio_idx = None
+
+    if is_direct:
         v_url = url
         a_url = None
         clip_start = max(0.0, float(start_sec))
@@ -164,6 +202,9 @@ def download_and_trim_youtube(
             clip_duration = min(600.0, float(end_sec) - clip_start)
         else:
             clip_duration = 60.0
+        if progress_callback:
+            progress_callback(20.0, "Scanning MKV/MP4 stream tracks for Hindi audio...")
+        best_audio_idx = detect_hindi_or_best_audio_stream(v_url)
         if progress_callback:
             progress_callback(25.0, f"Capturing {int(clip_duration)}s clip from direct movie stream...")
     else:
@@ -199,16 +240,28 @@ def download_and_trim_youtube(
         if not v_url:
             raise RuntimeError("Could not resolve streaming URL from YouTube.")
 
-    # Construct FFmpeg HTTP Seek Command
-    # Placing -ss before -i enables rapid seek without downloading earlier parts
-    # -avoid_negative_ts make_zero ensures video and audio PTS start synchronously from timestamp 0.000
-    cmd = ["ffmpeg", "-y"]
-    cmd.extend(["-ss", str(clip_start)])
-    cmd.extend(["-i", v_url])
+    # Construct FFmpeg HTTP Seek Command with Reconnect Resilience and Low RAM Buffer
+    cmd = [
+        "ffmpeg", "-y",
+        "-reconnect", "1",
+        "-reconnect_at_eof", "1",
+        "-reconnect_streamed", "1",
+        "-reconnect_delay_max", "5",
+        "-threads", "2",
+        "-bufsize", "2000k",
+        "-ss", str(clip_start),
+        "-i", v_url
+    ]
 
     if a_url:
-        cmd.extend(["-ss", str(clip_start)])
-        cmd.extend(["-i", a_url])
+        cmd.extend([
+            "-reconnect", "1",
+            "-reconnect_at_eof", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "5",
+            "-ss", str(clip_start),
+            "-i", a_url
+        ])
 
     cmd.extend(["-t", str(clip_duration)])
 
@@ -220,11 +273,20 @@ def download_and_trim_youtube(
             "-map", "0:v:0", "-map", "1:a:0",
             "-avoid_negative_ts", "make_zero"
         ])
+    elif is_direct and best_audio_idx is not None:
+        cmd.extend([
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+            "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
+            "-c:a", "aac", "-b:a", "192k",
+            "-map", "0:v:0", "-map", f"0:{best_audio_idx}",
+            "-avoid_negative_ts", "make_zero"
+        ])
     else:
         cmd.extend([
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
             "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
             "-c:a", "aac", "-b:a", "192k",
+            "-map", "0:v:0", "-map", "0:a:0?",
             "-avoid_negative_ts", "make_zero"
         ])
 
