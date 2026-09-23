@@ -104,12 +104,13 @@ def format_time_str(seconds: float) -> str:
     return f"{mins:02d}:{secs:02d}"
 
 def is_direct_video_link(url: str) -> bool:
-    """Checks if a URL is a direct video download/stream link."""
-    clean = url.split("?")[0].lower()
-    return (
-        clean.endswith(('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v')) or
-        '/download' in clean or 'cloud' in clean or 'filesdl' in clean or 'gofile' in clean or 'indishare' in clean or 'pixeldrain' in clean
-    )
+    """Checks if a URL is a direct video download/stream link or third-party movie host."""
+    u = url.strip().lower()
+    if not (u.startswith("http://") or u.startswith("https://")):
+        return False
+    if "youtube.com" in u or "youtu.be" in u:
+        return False
+    return True
 
 _GOFILE_TOKEN = None
 
@@ -144,9 +145,11 @@ def resolve_direct_video_stream(url: str) -> dict:
 
     # Pixeldrain Auto-Converter: Convert https://pixeldrain.com/u/<id> to direct stream https://pixeldrain.com/api/file/<id>
     if "pixeldrain." in url.lower() and "/u/" in url:
+        p_d = urlparse(url)
+        domain = p_d.netloc or "pixeldrain.dev"
         file_id = url.split("/u/")[-1].split("?")[0].split("/")[0].strip()
         if file_id:
-            url = f"https://pixeldrain.com/api/file/{file_id}"
+            url = f"https://{domain}/api/file/{file_id}"
 
     parsed = urlparse(url)
     origin = f"{parsed.scheme}://{parsed.netloc}/"
