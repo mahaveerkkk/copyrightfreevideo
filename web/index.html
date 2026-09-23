@@ -45,19 +45,23 @@
     <!-- Main Content Container -->
     <main class="app-container">
         
-        <!-- Master 3-Studio Navigation Bar -->
+        <!-- Master Studios Navigation Bar -->
         <div class="master-studio-nav">
             <button type="button" class="studio-nav-btn active" id="btnStudioMovie">
                 <span class="studio-icon">🎬</span>
                 <span class="studio-title">Movie & Video Shield</span>
             </button>
+            <button type="button" class="studio-nav-btn" id="btnStudioDownloader">
+                <span class="studio-icon">📥</span>
+                <span class="studio-title">Video Downloader</span>
+            </button>
             <button type="button" class="studio-nav-btn" id="btnStudioHook">
                 <span class="studio-icon">🔍</span>
-                <span class="studio-title">AI Viral Hook Finder</span>
+                <span class="studio-title">AI Hook Finder</span>
             </button>
             <button type="button" class="studio-nav-btn" id="btnStudioLofi">
                 <span class="studio-icon">🎵</span>
-                <span class="studio-title">Music & Lo-Fi Scrambler</span>
+                <span class="studio-title">Music & Lo-Fi</span>
             </button>
         </div>
 
@@ -454,6 +458,65 @@
                 <span class="btn-icon">🎵</span>
                 <span>Generate Copyright-Free Track</span>
             </button>
+        </div>
+
+        <!-- Studio 4 Card: Direct Video & Audio Downloader -->
+        <div class="glass-card" id="studioDownloaderCard" style="display: none;">
+            <div class="studio-header-banner">
+                <div class="banner-badge" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: #34d399;">
+                    📥 DIRECT HIGH-SPEED DOWNLOADER
+                </div>
+                <h3 class="banner-title">Download YouTube & Direct Videos</h3>
+                <p class="banner-sub">YouTube video link ya direct CDN movie link daalo. 1080p Full HD, 720p HD, ya MP3 audio seedha apne phone ya PC me download karo — bina kisi quality loss ke!</p>
+            </div>
+
+            <!-- Downloader Input Box -->
+            <div class="yt-input-group" style="margin-top: 1.2rem;">
+                <input type="url" id="dlUrlInput" class="yt-url-field" placeholder="Paste YouTube link or direct video URL here..." autocomplete="off">
+                <button type="button" class="btn-paste-shortcut" id="btnDlPaste" title="Paste from clipboard">
+                    📋 Paste
+                </button>
+                <button type="button" class="btn-fetch-yt" id="btnDlFetch">
+                    <span id="dlSpinner" class="btn-spinner" style="display: none;"></span>
+                    <span id="dlBtnText">🔍 Get Download Links</span>
+                </button>
+            </div>
+
+            <!-- Downloader Result Container (Initially Hidden) -->
+            <div id="dlResultContainer" style="display: none; margin-top: 1.4rem;">
+                
+                <!-- Video Info Preview Card -->
+                <div class="yt-preview-card" style="margin-bottom: 1.2rem;">
+                    <img id="dlThumbImg" src="" alt="Thumbnail" class="yt-preview-thumb">
+                    <div class="yt-preview-meta">
+                        <h4 id="dlTitleText" class="yt-preview-title">Video Title</h4>
+                        <p id="dlAuthorText" class="yt-preview-author">Channel</p>
+                        <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                            <span id="dlDurationBadge" class="duration-badge">⏱️ 00:00</span>
+                            <span class="duration-badge" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: #34d399;">⚡ Ready to Download</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quality Selection Header -->
+                <div style="margin-bottom: 0.8rem; display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 0.85rem; font-weight: 700; color: #fff;">Choose Quality to Download:</span>
+                    <span style="font-size: 0.72rem; color: var(--text-muted);">Direct to Storage</span>
+                </div>
+
+                <!-- Quality Cards Grid -->
+                <div class="dl-quality-grid" id="dlQualityGrid">
+                    <!-- Injected dynamically by app.js -->
+                </div>
+
+                <!-- Live Download Status Message -->
+                <div id="dlStatusBox" class="dl-status-box" style="display: none;">
+                    <div class="dl-status-spinner"></div>
+                    <span id="dlStatusMsg">Preparing high-speed download...</span>
+                </div>
+
+            </div>
+
         </div>
 
         <!-- Processing & Result Card -->

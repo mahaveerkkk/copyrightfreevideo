@@ -272,7 +272,13 @@ def _youtube_worker(
             progress_callback=on_transform_progress,
             job_id=job_id
         )
-        
+        # Purge temporary raw snippet to save 50% disk space (safe final output is safely generated)
+        try:
+            if os.path.exists(input_path):
+                os.remove(input_path)
+        except Exception:
+            pass
+
         update_job_status(
             job_id=job_id,
             progress=100.0,

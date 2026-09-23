@@ -4,21 +4,22 @@ import json
 import asyncio
 import shutil
 from typing import Optional
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request, Response, Header, Cookie
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request, Response, Header, Cookie, BackgroundTasks, Query
 from fastapi.responses import FileResponse, StreamingResponse
 import aiofiles
 
 from api.config import INPUT_DIR, OUTPUT_DIR, TEMP_DIR, ALLOWED_EXTENSIONS
 from api.models import JobResponse, JobStatus
 from core.presets import PRESETS
-from core.youtube_service import get_youtube_info
+from core.youtube_service import get_youtube_info, get_downloader_info, download_media_file
 from core.db import (
     create_user,
     authenticate_user,
     create_session,
     get_user_by_session,
     delete_session,
-    db_get_user_jobs
+    db_get_user_jobs,
+    is_registration_allowed
 )
 from workers.manager import (
     submit_job,
@@ -89,6 +90,14 @@ async def api_login(
         samesite="lax"
     )
     return {"status": "ok", "token": token, "user": user}
+
+@router.get("/auth/status")
+async def api_auth_status():
+    """Returns whether new user registration is open or locked for private single-user mode."""
+    return {
+        "status": "ok",
+        "registration_allowed": is_registration_allowed()
+    }
 
 @router.get("/auth/me")
 async def api_auth_me(
@@ -656,3 +665,65 @@ async def health_check():
             "total_gb": round(total / (1024**3), 2)
         }
     }
+
+# ================= VIDEO DOWNLOADER TAB ENDPOINTS =================
+
+@router.post("/downloader/info")
+async def api_downloader_info(url: str = Form(...)):
+    """Fetches video metadata & available resolution formats for direct download."""
+    clean_url = url.strip()
+    if not clean_url:
+        raise HTTPException(status_code=400, detail="URL cannot be empty")
+    try:
+        data = await asyncio.to_thread(get_downloader_info, clean_url)
+        return {"status": "ok", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch video: {str(e)}")
+
+@router.get("/downloader/download")
+async def api_downloader_download(
+    background_tasks: BackgroundTasks,
+    url: str = Query(...),
+    quality: str = Query("720p")
+):
+    """
+    Downloads raw YouTube video or direct CDN file in requested quality and streams it directly to device.
+    Auto-cleans the temporary file from disk once download completes.
+    """
+    clean_url = url.strip()
+    if not clean_url:
+        raise HTTPException(status_code=400, detail="URL cannot be empty")
+        
+    dl_id = str(uuid.uuid4())
+    ext = "mp3" if quality == "mp3" else "mp4"
+    temp_target = os.path.join(TEMP_DIR, f"dl_{dl_id}.{ext}")
+
+    def _cleanup(file_path: str):
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception:
+            pass
+
+    try:
+        actual_path = await asyncio.to_thread(download_media_file, clean_url, quality, temp_target)
+        if not os.path.exists(actual_path):
+            raise HTTPException(status_code=500, detail="Downloaded media file could not be found.")
+
+        # Determine clean user-facing filename
+        actual_ext = os.path.splitext(actual_path)[1] or f".{ext}"
+        user_filename = f"video_{quality}_{dl_id[:6]}{actual_ext}" if quality != "mp3" else f"audio_{dl_id[:6]}.mp3"
+
+        background_tasks.add_task(_cleanup, actual_path)
+
+        media_type = "audio/mpeg" if actual_ext == ".mp3" else "video/mp4"
+        return FileResponse(
+            path=actual_path,
+            filename=user_filename,
+            media_type=media_type,
+            background=background_tasks
+        )
+    except Exception as e:
+        _cleanup(temp_target)
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+

@@ -91,12 +91,23 @@ def _hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]
     ).hex()
     return pw_hash, salt
 
+def is_registration_allowed() -> bool:
+    """Returns True if no user exists yet. Once 1 user is created, registration locks permanently."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) as count FROM users")
+        row = cursor.fetchone()
+        return (row["count"] == 0) if row else True
+
 def create_user(username: str, password: str) -> Dict[str, Any]:
     username = username.strip()
     if len(username) < 3:
         raise ValueError("Username must be at least 3 characters")
     if len(password) < 4:
         raise ValueError("Password must be at least 4 characters")
+
+    if not is_registration_allowed():
+        raise ValueError("Registration is closed. This private instance is locked to the owner.")
 
     pw_hash, salt = _hash_password(password)
     with get_db_connection() as conn:
@@ -247,16 +258,16 @@ def db_get_job(job_id: str) -> Optional[Dict[str, Any]]:
         return res
 
 def db_get_user_jobs(user_id: int, limit: int = 50) -> List[Dict[str, Any]]:
+    """Fetches render jobs. In private single-user mode, returns all jobs so nothing is lost."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT job_id, filename, preset, mode, status, progress, message, download_url, 
                    elapsed_seconds, error, batch_id, created_at, updated_at
             FROM render_jobs
-            WHERE user_id = ?
             ORDER BY created_at DESC
             LIMIT ?
-        """, (user_id, limit))
+        """, (limit,))
         rows = cursor.fetchall()
         return [dict(r) for r in rows]
 
@@ -264,10 +275,7 @@ def db_delete_job(job_id: str, user_id: Optional[int] = None) -> bool:
     """Deletes a job from the database."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        if user_id is not None:
-            cursor.execute("DELETE FROM render_jobs WHERE job_id = ? AND user_id = ?", (job_id, user_id))
-        else:
-            cursor.execute("DELETE FROM render_jobs WHERE job_id = ?", (job_id,))
+        cursor.execute("DELETE FROM render_jobs WHERE job_id = ?", (job_id,))
         conn.commit()
         return cursor.rowcount > 0
 

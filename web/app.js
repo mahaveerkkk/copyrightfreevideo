@@ -98,10 +98,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Master 3-Studio Tabs & Containers
     const btnStudioMovie = document.getElementById("btnStudioMovie");
+    const btnStudioDownloader = document.getElementById("btnStudioDownloader");
     const btnStudioHook = document.getElementById("btnStudioHook");
     const btnStudioLofi = document.getElementById("btnStudioLofi");
+    const studioDownloaderCard = document.getElementById("studioDownloaderCard");
     const studioHookCard = document.getElementById("studioHookCard");
     const studioLofiCard = document.getElementById("studioLofiCard");
+
+    // Studio 4: Video Downloader Elements
+    const dlUrlInput = document.getElementById("dlUrlInput");
+    const btnDlPaste = document.getElementById("btnDlPaste");
+    const btnDlFetch = document.getElementById("btnDlFetch");
+    const dlSpinner = document.getElementById("dlSpinner");
+    const dlBtnText = document.getElementById("dlBtnText");
+    const dlResultContainer = document.getElementById("dlResultContainer");
+    const dlThumbImg = document.getElementById("dlThumbImg");
+    const dlTitleText = document.getElementById("dlTitleText");
+    const dlAuthorText = document.getElementById("dlAuthorText");
+    const dlDurationBadge = document.getElementById("dlDurationBadge");
+    const dlQualityGrid = document.getElementById("dlQualityGrid");
+    const dlStatusBox = document.getElementById("dlStatusBox");
+    const dlStatusMsg = document.getElementById("dlStatusMsg");
 
     // Studio 2: Hook Finder Elements
     const hookYtUrlInput = document.getElementById("hookYtUrlInput");
@@ -124,20 +141,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     });
 
-    // Switch between the 3 Master Studios
+    // Switch between the Master Studios
     function switchMasterStudio(target) {
-        btnStudioMovie.classList.toggle("active", target === "movie");
-        btnStudioHook.classList.toggle("active", target === "hook");
-        btnStudioLofi.classList.toggle("active", target === "lofi");
+        if (btnStudioMovie) btnStudioMovie.classList.toggle("active", target === "movie");
+        if (btnStudioDownloader) btnStudioDownloader.classList.toggle("active", target === "downloader");
+        if (btnStudioHook) btnStudioHook.classList.toggle("active", target === "hook");
+        if (btnStudioLofi) btnStudioLofi.classList.toggle("active", target === "lofi");
 
-        configCard.style.display = target === "movie" ? "block" : "none";
-        studioHookCard.style.display = target === "hook" ? "block" : "none";
-        studioLofiCard.style.display = target === "lofi" ? "block" : "none";
+        if (configCard) configCard.style.display = target === "movie" ? "block" : "none";
+        if (studioDownloaderCard) studioDownloaderCard.style.display = target === "downloader" ? "block" : "none";
+        if (studioHookCard) studioHookCard.style.display = target === "hook" ? "block" : "none";
+        if (studioLofiCard) studioLofiCard.style.display = target === "lofi" ? "block" : "none";
     }
 
-    btnStudioMovie.addEventListener("click", () => switchMasterStudio("movie"));
-    btnStudioHook.addEventListener("click", () => switchMasterStudio("hook"));
-    btnStudioLofi.addEventListener("click", () => switchMasterStudio("lofi"));
+    if (btnStudioMovie) btnStudioMovie.addEventListener("click", () => switchMasterStudio("movie"));
+    if (btnStudioDownloader) btnStudioDownloader.addEventListener("click", () => switchMasterStudio("downloader"));
+    if (btnStudioHook) btnStudioHook.addEventListener("click", () => switchMasterStudio("hook"));
+    if (btnStudioLofi) btnStudioLofi.addEventListener("click", () => switchMasterStudio("lofi"));
 
     // Studio 2 & 3 Input Mode Tabs & Phone Upload Handlers
     const tabHookYt = document.getElementById("tabHookYt");
@@ -346,6 +366,141 @@ document.addEventListener("DOMContentLoaded", async () => {
             progressCard.style.display = "none";
         }
     });
+
+    // ================= STUDIO 4: VIDEO DOWNLOADER HANDLERS =================
+    if (btnDlPaste && dlUrlInput) {
+        btnDlPaste.addEventListener("click", async () => {
+            try {
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    const text = await navigator.clipboard.readText();
+                    if (text && text.trim()) {
+                        dlUrlInput.value = text.trim();
+                        dlUrlInput.focus();
+                    }
+                } else {
+                    dlUrlInput.focus();
+                }
+            } catch (err) {
+                dlUrlInput.focus();
+            }
+        });
+    }
+
+    if (btnDlFetch && dlUrlInput) {
+        btnDlFetch.addEventListener("click", async () => {
+            const url = dlUrlInput.value.trim();
+            if (!url) {
+                alert("Please paste a valid YouTube or video link first!");
+                dlUrlInput.focus();
+                return;
+            }
+
+            dlBtnText.innerText = "Fetching Video...";
+            dlSpinner.style.display = "inline-block";
+            btnDlFetch.disabled = true;
+            if (dlStatusBox) dlStatusBox.style.display = "none";
+            if (dlResultContainer) dlResultContainer.style.display = "none";
+
+            try {
+                const formData = new FormData();
+                formData.append("url", url);
+
+                const res = await fetch("/api/downloader/info", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "Could not fetch video info");
+                }
+
+                const json = await res.json();
+                const videoData = json.data;
+
+                // Update Preview Card
+                if (dlThumbImg) dlThumbImg.src = videoData.thumbnail || "";
+                if (dlTitleText) dlTitleText.innerText = videoData.title || "Video";
+                if (dlAuthorText) dlAuthorText.innerText = videoData.channel || "Source";
+                if (dlDurationBadge) dlDurationBadge.innerText = `⏱️ ${videoData.duration_str || "Direct"}`;
+
+                // Render Quality Cards
+                if (dlQualityGrid) {
+                    dlQualityGrid.innerHTML = "";
+                    (videoData.formats || []).forEach(fmt => {
+                        const card = document.createElement("div");
+                        card.className = "dl-card";
+                        card.innerHTML = `
+                            <div class="dl-card-header">
+                                <div class="dl-card-title-group">
+                                    <span class="dl-card-icon">${fmt.icon || '🎬'}</span>
+                                    <div>
+                                        <div class="dl-card-title">${fmt.label}</div>
+                                        <div style="font-size: 0.7rem; color: var(--text-muted);">${fmt.ext.toUpperCase()} format</div>
+                                    </div>
+                                </div>
+                                <span class="dl-card-badge">${fmt.badge}</span>
+                            </div>
+                            <button type="button" class="dl-btn-action" data-quality="${fmt.quality}">
+                                <span>⬇️</span>
+                                <span>Download to Device</span>
+                            </button>
+                        `;
+
+                        const dlBtn = card.querySelector(".dl-btn-action");
+                        dlBtn.addEventListener("click", () => {
+                            triggerVideoDownload(url, fmt.quality, fmt.label, dlBtn);
+                        });
+
+                        dlQualityGrid.appendChild(card);
+                    });
+                }
+
+                if (dlResultContainer) dlResultContainer.style.display = "block";
+
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            } finally {
+                dlBtnText.innerText = "🔍 Get Download Links";
+                dlSpinner.style.display = "none";
+                btnDlFetch.disabled = false;
+            }
+        });
+    }
+
+    function triggerVideoDownload(url, quality, label, buttonEl) {
+        if (!buttonEl) return;
+        const origHtml = buttonEl.innerHTML;
+        buttonEl.classList.add("downloading");
+        buttonEl.innerHTML = `<span>⏳</span> <span>Connecting stream...</span>`;
+        buttonEl.disabled = true;
+
+        if (dlStatusBox && dlStatusMsg) {
+            dlStatusBox.style.display = "flex";
+            dlStatusMsg.innerText = `🚀 Stream connecting for ${label}... Your browser will start saving the file shortly!`;
+        }
+
+        // Trigger direct file download
+        const downloadUrl = `/api/downloader/download?url=${encodeURIComponent(url)}&quality=${encodeURIComponent(quality)}`;
+        const tempLink = document.createElement("a");
+        tempLink.href = downloadUrl;
+        tempLink.setAttribute("download", "");
+        document.body.appendChild(tempLink);
+        tempLink.click();
+        document.body.removeChild(tempLink);
+
+        // Reset button after 4 seconds
+        setTimeout(() => {
+            buttonEl.classList.remove("downloading");
+            buttonEl.innerHTML = `<span>✅</span> <span>Downloaded!</span>`;
+            setTimeout(() => {
+                buttonEl.innerHTML = origHtml;
+                buttonEl.disabled = false;
+                if (dlStatusBox) dlStatusBox.style.display = "none";
+            }, 3000);
+        }, 4000);
+    }
+
 
     // Tab Switching: Local File vs YouTube
     tabUploadMode.addEventListener("click", () => {
@@ -1170,13 +1325,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (btnOpenAuth) {
-        btnOpenAuth.addEventListener("click", () => {
+        btnOpenAuth.addEventListener("click", async () => {
             if (authModal) {
                 authModal.style.display = "flex";
                 if (authError) authError.style.display = "none";
+                
+                // Check if registration is locked (private single-user instance)
+                try {
+                    const statusRes = await fetch("/api/auth/status");
+                    const statusData = await statusRes.json();
+                    if (statusData.registration_allowed === false && tabAuthRegister) {
+                        tabAuthRegister.style.display = "none";
+                        authMode = "login";
+                        tabAuthLogin.classList.add("active");
+                        if (authModalTitle) authModalTitle.innerText = "CR-SHIELD Owner Login";
+                        if (btnAuthSubmit) btnAuthSubmit.innerText = "Sign In as Owner";
+                    } else if (tabAuthRegister) {
+                        tabAuthRegister.style.display = "block";
+                    }
+                } catch (e) {
+                    console.error("Auth status check failed:", e);
+                }
             }
         });
     }
+
+    // Auto-refresh when mobile phone screen turns on or user switches back to browser tab
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+            refreshMyRendersCount();
+            if (rendersModal && rendersModal.style.display === "flex") {
+                loadMyRenders();
+            }
+        }
+    });
 
     if (btnCloseAuth) {
         btnCloseAuth.addEventListener("click", () => {

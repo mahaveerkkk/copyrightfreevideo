@@ -47,12 +47,12 @@ def extract_with_client_fallback(url: str, download: bool = False, custom_opts: 
     node_bin = shutil.which('node') or ('/home/veer/.nvm/versions/node/v24.16.0/bin/node' if os.path.exists('/home/veer/.nvm/versions/node/v24.16.0/bin/node') else None)
 
     client_strategies = [
-        # Strategy 1: Android + Web combo (most reliable on Cloud/Railway datacenter IPs)
-        ({'extractor_args': {'youtube': {'player_client': ['android', 'web']}}}, False),
-        # Strategy 2: Pure Android client (no cookies)
-        ({'extractor_args': {'youtube': {'player_client': ['android']}}}, False),
-        # Strategy 3: TV Embedded / VisionOS
+        # Strategy 1: TV Embedded / VisionOS (bypasses bot challenges, gives all resolutions up to 4K)
         ({'extractor_args': {'youtube': {'player_client': ['visionos', 'tv']}}}, False),
+        # Strategy 2: Android + Web combo (most reliable on Cloud/Railway datacenter IPs)
+        ({'extractor_args': {'youtube': {'player_client': ['android', 'web']}}}, False),
+        # Strategy 3: Pure Android client (no cookies)
+        ({'extractor_args': {'youtube': {'player_client': ['android']}}}, False),
         # Strategy 4: Web Creator & MWeb with cookies if available
         ({'extractor_args': {'youtube': {'player_client': ['web_creator', 'mweb']}}}, True),
         # Strategy 5: Standard default
@@ -321,3 +321,173 @@ def download_and_trim_youtube(
         progress_callback(40.0, "Trim complete! Entering Anti-Copyright Engine...")
 
     return output_path
+
+def get_downloader_info(url: str) -> Dict[str, Any]:
+    """
+    Extracts video information and available download quality options for the Video Downloader tab.
+    Supports YouTube links and direct CDN links.
+    """
+    is_direct = is_direct_video_link(url)
+    if is_direct:
+        from core.metadata_cleaner import probe_video
+        try:
+            p_info = probe_video(url)
+            duration = float(p_info.get("duration", 0.0) or 0.0)
+        except Exception:
+            duration = 0.0
+        
+        filename = os.path.basename(url.split("?")[0]) or "Direct_Video.mp4"
+        return {
+            "title": f"🎬 {filename}",
+            "channel": "Direct Cloud CDN Link",
+            "duration": duration,
+            "duration_str": format_time_str(duration) if duration > 0 else "Direct File",
+            "thumbnail": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&q=80",
+            "is_direct": True,
+            "formats": [
+                {"id": "direct_original", "label": "Original Direct File", "ext": "mp4", "badge": "Source Quality", "icon": "🎬", "quality": "direct"}
+            ]
+        }
+
+    # YouTube Video Info & Available Formats
+    info = extract_with_client_fallback(url, download=False, custom_opts={'skip_download': True})
+    duration = float(info.get('duration', 0) or 0)
+    thumbnail = info.get('thumbnail', '')
+    if 'thumbnails' in info and info['thumbnails']:
+        thumbnail = info['thumbnails'][-1].get('url', thumbnail)
+
+    # Detect available resolutions
+    formats_list = info.get('formats', [])
+    available_heights = set(f.get('height') for f in formats_list if f.get('height'))
+
+    download_options = []
+    
+    # 1080p
+    if 1080 in available_heights or any(h >= 1080 for h in available_heights):
+        download_options.append({
+            "id": "1080p",
+            "label": "1080p Full HD",
+            "ext": "mp4",
+            "badge": "1080p Crisp",
+            "icon": "🎬",
+            "quality": "1080p"
+        })
+    
+    # 720p (default if available or as primary)
+    download_options.append({
+        "id": "720p",
+        "label": "720p HD Video",
+        "ext": "mp4",
+        "badge": "HD • Recommended",
+        "icon": "🎬",
+        "quality": "720p"
+    })
+
+    # 480p / 360p
+    download_options.append({
+        "id": "360p",
+        "label": "360p / 480p Fast",
+        "ext": "mp4",
+        "badge": "Fast • Low Data",
+        "icon": "⚡",
+        "quality": "360p"
+    })
+
+    # MP3 Audio
+    download_options.append({
+        "id": "mp3",
+        "label": "Audio Only (MP3)",
+        "ext": "mp3",
+        "badge": "192kbps High Quality",
+        "icon": "🎵",
+        "quality": "mp3"
+    })
+
+    return {
+        "title": info.get('title', 'YouTube Video'),
+        "channel": info.get('uploader') or info.get('channel', 'YouTube Creator'),
+        "duration": duration,
+        "duration_str": format_time_str(duration),
+        "thumbnail": thumbnail,
+        "is_direct": False,
+        "formats": download_options
+    }
+
+def download_media_file(url: str, quality: str, output_path: str) -> str:
+    """
+    Downloads raw YouTube video or direct CDN video to output_path.
+    Quality options: 1080p, 720p, 360p, mp3, direct.
+    """
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    is_direct = is_direct_video_link(url)
+
+    if is_direct:
+        # Direct stream copy with FFmpeg
+        cmd = [
+            "ffmpeg", "-y",
+            "-reconnect", "1",
+            "-reconnect_at_eof", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "5",
+            "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "-i", url,
+            "-c", "copy",
+            "-avoid_negative_ts", "make_zero",
+            output_path
+        ]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        return output_path
+
+    # YouTube Download via yt-dlp
+    import shutil
+    node_bin = shutil.which('node') or ('/home/veer/.nvm/versions/node/v24.16.0/bin/node' if os.path.exists('/home/veer/.nvm/versions/node/v24.16.0/bin/node') else None)
+
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'outtmpl': output_path,
+        'socket_timeout': 45,
+        'extractor_args': {'youtube': {'player_client': ['visionos', 'tv', 'android', 'web']}}
+    }
+    if node_bin:
+        ydl_opts['js_runtimes'] = {'node': {'path': node_bin}}
+
+    if quality == "mp3":
+        ydl_opts.update({
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+        })
+        # If output_path ends with .mp3, yt-dlp automatically produces .mp3
+        base_no_ext = os.path.splitext(output_path)[0]
+        ydl_opts['outtmpl'] = f"{base_no_ext}.%(ext)s"
+    elif quality == "1080p":
+        ydl_opts['format'] = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best'
+        ydl_opts['merge_output_format'] = 'mp4'
+    elif quality == "720p":
+        ydl_opts['format'] = 'bestvideo[height<=720]+bestaudio/best[height<=720]/best'
+        ydl_opts['merge_output_format'] = 'mp4'
+    else: # 360p / fast
+        ydl_opts['format'] = 'best[height<=480]/best[height<=360]/best'
+        ydl_opts['merge_output_format'] = 'mp4'
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+
+    # Check for actual created file (mp3 post-processing might change extension)
+    if os.path.exists(output_path):
+        return output_path
+    
+    mp3_candidate = f"{os.path.splitext(output_path)[0]}.mp3"
+    if os.path.exists(mp3_candidate):
+        return mp3_candidate
+
+    mp4_candidate = f"{os.path.splitext(output_path)[0]}.mp4"
+    if os.path.exists(mp4_candidate):
+        return mp4_candidate
+
+    raise RuntimeError("Downloaded file not found on disk.")
+
