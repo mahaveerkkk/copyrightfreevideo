@@ -108,6 +108,26 @@ def is_direct_video_link(url: str) -> bool:
         '/download' in clean or 'cloud' in clean or 'filesdl' in clean or 'gofile' in clean or 'indishare' in clean
     )
 
+_GOFILE_TOKEN = None
+
+def get_gofile_token() -> str:
+    """Fetches a guest token from Gofile API to authorize direct stream access."""
+    global _GOFILE_TOKEN
+    if _GOFILE_TOKEN:
+        return _GOFILE_TOKEN
+    try:
+        import urllib.request
+        import json as _json
+        req = urllib.request.Request("https://api.gofile.io/accounts", data=b"", headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = _json.loads(resp.read().decode())
+            if data.get("status") == "ok":
+                _GOFILE_TOKEN = data.get("data", {}).get("token", "")
+                return _GOFILE_TOKEN
+    except Exception:
+        pass
+    return ""
+
 def resolve_direct_video_stream(url: str) -> dict:
     """
     Resolves redirects, parses Content-Disposition for the true movie filename,
@@ -228,6 +248,10 @@ def detect_hindi_or_best_audio_stream(url: str) -> Optional[int]:
         from urllib.parse import urlparse
         p_u = urlparse(url)
         origin_h = f"Referer: {p_u.scheme}://{p_u.netloc}/\r\n"
+        if "gofile.io" in url.lower():
+            tok = get_gofile_token()
+            if tok:
+                origin_h += f"Cookie: accountToken={tok}\r\nAuthorization: Bearer {tok}\r\n"
         cmd = [
             "ffprobe", "-v", "error",
             "-headers", origin_h,
@@ -330,6 +354,10 @@ def download_and_trim_youtube(
     from urllib.parse import urlparse
     parsed_v = urlparse(v_url)
     origin_header = f"Referer: {parsed_v.scheme}://{parsed_v.netloc}/\r\n"
+    if "gofile.io" in v_url.lower():
+        tok = get_gofile_token()
+        if tok:
+            origin_header += f"Cookie: accountToken={tok}\r\nAuthorization: Bearer {tok}\r\n"
 
     # Construct FFmpeg HTTP Seek Command with Reconnect Resilience, Browser UA & Subtitle Suppression
     cmd = [
