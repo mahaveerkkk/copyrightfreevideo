@@ -108,15 +108,75 @@ def is_direct_video_link(url: str) -> bool:
         '/download' in clean or 'cloud' in clean or 'filesdl' in clean or 'gofile' in clean or 'indishare' in clean
     )
 
+def resolve_direct_video_stream(url: str) -> dict:
+    """
+    Follows HTTP redirects, parses Content-Disposition for the true movie filename,
+    and detects if the host CDN returned 403 Forbidden.
+    """
+    import requests
+    from urllib.parse import urlparse, unquote
+    import re
+
+    parsed = urlparse(url)
+    origin = f"{parsed.scheme}://{parsed.netloc}/"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": origin,
+        "Accept": "*/*"
+    }
+
+    final_url = url
+    real_filename = None
+    is_blocked_403 = False
+
+    try:
+        resp = requests.get(url, headers=headers, stream=True, allow_redirects=True, timeout=8)
+        if resp.status_code == 403:
+            is_blocked_403 = True
+        else:
+            final_url = resp.url
+            cd = resp.headers.get("Content-Disposition", "")
+            if "filename=" in cd:
+                m = re.search(r'filename\*?=(?:UTF-8\'\')?["\']?([^"\';]+)["\']?', cd)
+                if m:
+                    real_filename = unquote(m.group(1).strip())
+        resp.close()
+    except Exception:
+        pass
+
+    if not real_filename:
+        path_name = unquote(urlparse(final_url).path.split("/")[-1])
+        if path_name and not path_name.lower().endswith(('.php', '.html', '.htm', '.jsp', '.asp')):
+            real_filename = path_name
+        else:
+            real_filename = "Direct_Movie.mp4"
+
+    return {
+        "final_url": final_url,
+        "filename": real_filename,
+        "origin": origin,
+        "is_blocked_403": is_blocked_403
+    }
+
 def get_youtube_info(url: str) -> Dict[str, Any]:
     """
     Extracts metadata from YouTube URL or Direct Movie Download URL (9xflix, Filmyfly, etc.).
     """
     if is_direct_video_link(url):
+        res_info = resolve_direct_video_stream(url)
+        if res_info.get("is_blocked_403"):
+            raise ValueError(
+                "⚠️ Access Denied (403 Forbidden): Host server ne is link ko block kar diya hai. "
+                "Yeh link aapke phone/browser IP ke sath locked hai. "
+                "Solution: Browser me movie download shuru karein aur Chrome Downloads se final download link copy karein, ya file direct upload karein."
+            )
+        resolved_url = res_info.get("final_url") or url
+        filename = res_info.get("filename") or "Direct_Movie.mp4"
+
         # Direct Movie CDN link probe
         from core.metadata_cleaner import probe_video
         try:
-            p_info = probe_video(url)
+            p_info = probe_video(resolved_url)
             duration = float(p_info.get("duration", 0.0) or 0.0)
         except Exception:
             duration = 0.0
@@ -125,7 +185,6 @@ def get_youtube_info(url: str) -> Dict[str, Any]:
         if duration <= 0:
             duration = 10800.0  # 3 hours max — user will set actual end time
 
-        filename = os.path.basename(url.split("?")[0]) or "Direct_Movie.mp4"
         return {
             "title": f"🎬 {filename}",
             "duration": duration,
@@ -133,7 +192,8 @@ def get_youtube_info(url: str) -> Dict[str, Any]:
             "thumbnail": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&q=80",
             "channel": "Direct Cloud CDN Stream",
             "id": "direct_stream",
-            "is_direct": True
+            "is_direct": True,
+            "resolved_url": resolved_url
         }
 
     info = extract_with_client_fallback(url, download=False, custom_opts={'skip_download': True})
@@ -159,8 +219,12 @@ def detect_hindi_or_best_audio_stream(url: str) -> Optional[int]:
     Prioritizes Hindi audio track if available, else first audio stream.
     """
     try:
+        from urllib.parse import urlparse
+        p_u = urlparse(url)
+        origin_h = f"Referer: {p_u.scheme}://{p_u.netloc}/\r\n"
         cmd = [
             "ffprobe", "-v", "error",
+            "-headers", origin_h,
             "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "-reconnect", "1",
             "-reconnect_streamed", "1",
@@ -257,10 +321,14 @@ def download_and_trim_youtube(
             raise RuntimeError("Could not resolve streaming URL from YouTube.")
 
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    from urllib.parse import urlparse
+    parsed_v = urlparse(v_url)
+    origin_header = f"Referer: {parsed_v.scheme}://{parsed_v.netloc}/\r\n"
 
     # Construct FFmpeg HTTP Seek Command with Reconnect Resilience, Browser UA & Subtitle Suppression
     cmd = [
         "ffmpeg", "-y",
+        "-headers", origin_header,
         "-user_agent", USER_AGENT,
         "-reconnect", "1",
         "-reconnect_at_eof", "1",
@@ -275,6 +343,7 @@ def download_and_trim_youtube(
 
     if a_url:
         cmd.extend([
+            "-headers", origin_header,
             "-user_agent", USER_AGENT,
             "-reconnect", "1",
             "-reconnect_at_eof", "1",
@@ -319,6 +388,7 @@ def download_and_trim_youtube(
             progress_callback(28.0, "Attempting high-speed zero-loss stream cut...")
         cmd_copy = [
             "ffmpeg", "-y",
+            "-headers", origin_header,
             "-user_agent", USER_AGENT,
             "-reconnect", "1",
             "-reconnect_at_eof", "1",
@@ -365,6 +435,7 @@ def download_and_trim_youtube(
             # Fallback if fast seek failed: try safe re-encode with reconnect headers & subtitle suppression
             cmd_fallback = [
                 "ffmpeg", "-y",
+                "-headers", origin_header,
                 "-user_agent", USER_AGENT,
                 "-reconnect", "1",
                 "-reconnect_at_eof", "1",

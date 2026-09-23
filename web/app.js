@@ -559,7 +559,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
 
             const data = await res.json();
-            ytVideoData = { ...data, url: url };
+            ytVideoData = { ...data, url: data.resolved_url || url };
 
             // Update UI
             ytThumbImg.src = data.thumbnail || "";

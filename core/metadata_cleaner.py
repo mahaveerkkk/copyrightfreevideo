@@ -38,10 +38,14 @@ def probe_video(file_path: str) -> Dict[str, Any]:
     ]
 
     if is_remote:
+        from urllib.parse import urlparse
+        p_u = urlparse(file_path)
+        origin = f"{p_u.scheme}://{p_u.netloc}/"
         cmd.extend([
+            "-headers", f"Referer: {origin}\r\n",
             "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            "-timeout", "10000000",
-            "-rw_timeout", "10000000",
+            "-timeout", "15000000",
+            "-rw_timeout", "15000000",
             "-reconnect", "1",
             "-reconnect_streamed", "1",
             "-reconnect_delay_max", "3",

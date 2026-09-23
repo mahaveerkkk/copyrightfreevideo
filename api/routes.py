@@ -182,9 +182,8 @@ async def get_presets():
 async def fetch_youtube_video_info(url: str = Form(...)):
     url = url.strip()
     is_yt = ("youtube.com" in url or "youtu.be" in url)
-    is_direct = url.startswith(("http://", "https://")) and (
-        url.split("?")[0].lower().endswith(('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v')) or '/download' in url.lower() or 'cloud' in url.lower() or 'filesdl' in url.lower()
-    )
+    from core.youtube_service import is_direct_video_link
+    is_direct = is_direct_video_link(url)
 
     if not url or (not is_yt and not is_direct):
         raise HTTPException(status_code=400, detail="Please enter a valid YouTube video link or direct movie download URL")
@@ -322,9 +321,8 @@ async def process_youtube_video(
 ):
     url = url.strip()
     is_yt = ("youtube.com" in url or "youtu.be" in url)
-    is_direct = url.startswith(("http://", "https://")) and (
-        url.split("?")[0].lower().endswith(('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v')) or '/download' in url.lower() or 'cloud' in url.lower() or 'filesdl' in url.lower()
-    )
+    from core.youtube_service import is_direct_video_link
+    is_direct = is_direct_video_link(url)
 
     if not url or (not is_yt and not is_direct):
         raise HTTPException(status_code=400, detail="Invalid video URL")
