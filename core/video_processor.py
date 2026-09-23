@@ -175,7 +175,22 @@ def build_video_filter_graph(video_config: dict, is_vertical_source: bool = Fals
     if sharpen:
         filters.append("unsharp=3:3:0.6")
 
-    # 10. Cinematic PiP Border Frame (Optional)
+    # 10. Cinematic Letterbox (2.35:1 Black Bars - Hides pirate website watermarks & adds Hollywood look)
+    letterbox = video_config.get("letterbox", False)
+    if letterbox:
+        # Crop to 2.35:1 aspect and pad back with black bars to original height
+        filters.append("crop=w=iw:h='2*trunc(iw/2.35/2)':x=0:y='(ih-out_h)/2'")
+        filters.append("pad=w=iw:h='2*trunc(ih/2)':x=0:y='(oh-ih)/2':color=black")
+
+    # 11. Channel Branding Watermark (e.g. "MovieVerse X")
+    watermark_text = video_config.get("watermark_text", "MovieVerse X")
+    show_watermark = video_config.get("watermark", True)
+    if show_watermark and watermark_text:
+        clean_text = str(watermark_text).replace("'", "").replace(":", "")
+        # Placed in top-right with subtle shadow and 0.65 opacity
+        filters.append(f"drawtext=text='{clean_text}':x=w-tw-24:y=24:fontsize=22:fontcolor=white@0.65:shadowcolor=black@0.6:shadowx=1:shadowy=1")
+
+    # 12. Cinematic PiP Border Frame (Optional)
     border_frame = video_config.get("border_frame", False)
     if border_frame:
         filters.append("scale=w='2*trunc(iw*0.94/2)':h='2*trunc(ih*0.94/2)'")

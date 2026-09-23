@@ -134,7 +134,25 @@ def cancel_batch(batch_id: str) -> int:
             jid = r["job_id"]
             cancel_job(jid)
             cancelled_count += 1
-    return cancelled_count
+def extract_job_thumbnails(output_path: str, job_id: str) -> List[str]:
+    """Extracts 3 sharp, distinct action frames to serve as YouTube thumbnails."""
+    from api.config import OUTPUT_DIR
+    from core.metadata_cleaner import probe_video
+    thumbnails = []
+    try:
+        p_out = probe_video(output_path)
+        out_dur = float(p_out.get("duration", 0) or 0)
+        if out_dur > 2.0:
+            times = [out_dur * 0.20, out_dur * 0.50, out_dur * 0.80]
+            for idx, t in enumerate(times, start=1):
+                tpath = os.path.join(OUTPUT_DIR, f"thumb_{job_id}_{idx}.jpg")
+                tcmd = ["ffmpeg", "-y", "-ss", f"{t:.2f}", "-i", output_path, "-vframes", "1", "-q:v", "2", tpath]
+                subprocess.run(tcmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+                if os.path.exists(tpath):
+                    thumbnails.append(f"/api/thumbnail/{job_id}/{idx}")
+    except Exception:
+        pass
+    return thumbnails
 
 def _sync_worker(job_id: str, input_path: str, output_path: str, preset_id: str, mode: str = "turbo", custom_overrides: Optional[dict] = None):
     # Check if cancelled before execution
@@ -159,6 +177,10 @@ def _sync_worker(job_id: str, input_path: str, output_path: str, preset_id: str,
             job_id=job_id
         )
         
+        thumbnails = extract_job_thumbnails(output_path, job_id)
+        transformed_meta = result.get("transformed") or {}
+        transformed_meta["thumbnails"] = thumbnails
+
         update_job_status(
             job_id=job_id,
             progress=100.0,
@@ -166,7 +188,7 @@ def _sync_worker(job_id: str, input_path: str, output_path: str, preset_id: str,
             status=JobStatus.COMPLETED,
             download_url=f"/api/download/{job_id}",
             original_meta=result.get("original"),
-            transformed_meta=result.get("transformed"),
+            transformed_meta=transformed_meta,
             elapsed_seconds=result.get("elapsed_seconds")
         )
         
@@ -279,6 +301,10 @@ def _youtube_worker(
         except Exception:
             pass
 
+        thumbnails = extract_job_thumbnails(output_path, job_id)
+        transformed_meta = result.get("transformed") or {}
+        transformed_meta["thumbnails"] = thumbnails
+
         update_job_status(
             job_id=job_id,
             progress=100.0,
@@ -286,7 +312,7 @@ def _youtube_worker(
             status=JobStatus.COMPLETED,
             download_url=f"/api/download/{job_id}",
             original_meta=result.get("original"),
-            transformed_meta=result.get("transformed"),
+            transformed_meta=transformed_meta,
             elapsed_seconds=result.get("elapsed_seconds")
         )
         

@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=3.3">
+    <link rel="stylesheet" href="styles.css?v=3.4">
 </head>
 <body>
     <div class="ambient-glow glow-1"></div>
@@ -355,6 +355,31 @@
                 </select>
             </div>
 
+            <!-- Feature: Channel Watermark & Cinematic Letterbox Bar -->
+            <div class="branding-bar" style="margin-top: 0.8rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                    <label style="font-size: 0.85rem; font-weight: 700; color: #e2e8f0; display: flex; align-items: center; gap: 6px;">
+                        <span>🏷️</span> <span>Channel Watermark Branding:</span>
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="text" id="watermarkTextInput" class="styled-select" value="MovieVerse X" style="width: 150px; padding: 6px 10px; font-size: 0.82rem; background: #0c101a; border: 1px solid rgba(0, 240, 255, 0.4); color: #a5f3fc; font-weight: 700;">
+                        <label class="custom-toggle" style="margin: 0; cursor: pointer;">
+                            <input type="checkbox" id="watermarkToggle" checked>
+                            <span style="font-size: 0.75rem; color: #34d399; font-weight: 700;">ON</span>
+                        </label>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;">
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">
+                        <span>🎬</span> <strong>Cinematic 2.35:1 Letterbox</strong> (Black bars • Hides pirate site logos)
+                    </div>
+                    <label class="custom-toggle" style="margin: 0; cursor: pointer;">
+                        <input type="checkbox" id="letterboxToggle">
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;" id="letterboxLabel">OFF</span>
+                    </label>
+                </div>
+            </div>
+
             <!-- Action Button -->
             <button type="button" class="btn-start-action" id="startBtn" disabled>
                 <span class="btn-icon">⚡</span>
@@ -611,6 +636,44 @@
                     </a>
                     <button type="button" class="btn-reset" id="restartBtn">🔄 Process Another</button>
                 </div>
+
+                <!-- Feature 2: Auto-Extracted YouTube Action Thumbnails -->
+                <div class="result-extra-box" id="thumbnailSection" style="margin-top: 1.5rem; display: none;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="font-size: 0.88rem; font-weight: 700; color: #fff;">📸 3 YouTube Action Thumbnails</span>
+                        <span style="font-size: 0.72rem; color: var(--cyan);">Tap image to download</span>
+                    </div>
+                    <div class="thumbs-grid" id="thumbsGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                        <!-- Injected by app.js -->
+                    </div>
+                </div>
+
+                <!-- Feature 3: Auto-Generated YouTube Title, Description & Tags -->
+                <div class="result-extra-box" id="seoSection" style="margin-top: 1.2rem; background: rgba(0, 240, 255, 0.04); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 12px; padding: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <span style="font-size: 0.88rem; font-weight: 800; color: #a5f3fc;">🚀 YouTube SEO & Copy Pack</span>
+                        <span class="badge-pro" style="background: #10b981; color: #000;">Ready to Paste</span>
+                    </div>
+                    
+                    <!-- Title Row -->
+                    <div style="margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Title:</span>
+                            <button type="button" class="btn-copy-mini" id="btnCopyTitle">📋 Copy Title</button>
+                        </div>
+                        <input type="text" id="seoTitleField" class="styled-select" style="width: 100%; font-size: 0.8rem; background: #07090e; padding: 8px 10px;" readonly>
+                    </div>
+
+                    <!-- Description & Tags Row -->
+                    <div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Description & Viral Tags:</span>
+                            <button type="button" class="btn-copy-mini" id="btnCopyDesc">📋 Copy Description</button>
+                        </div>
+                        <textarea id="seoDescField" class="styled-select" style="width: 100%; height: 80px; font-size: 0.75rem; background: #07090e; padding: 8px 10px; resize: none; font-family: inherit;" readonly></textarea>
+                    </div>
+                </div>
+
             </div>
 
         </div>
@@ -684,6 +747,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=3.3"></script>
+    <script src="app.js?v=3.4"></script>
 </body>
 </html>

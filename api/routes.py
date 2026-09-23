@@ -653,6 +653,14 @@ async def download_processed_video(job_id: str):
         media_type="video/mp4"
     )
 
+@router.get("/thumbnail/{job_id}/{idx}")
+async def get_job_thumbnail(job_id: str, idx: int):
+    """Serves high-quality action frame thumbnails extracted from the transformed video."""
+    tpath = os.path.join(OUTPUT_DIR, f"thumb_{job_id}_{idx}.jpg")
+    if not os.path.exists(tpath):
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+    return FileResponse(tpath, media_type="image/jpeg", filename=f"thumb_{job_id[:8]}_{idx}.jpg")
+
 @router.get("/health")
 async def health_check():
     import shutil

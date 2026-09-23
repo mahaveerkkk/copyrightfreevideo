@@ -762,6 +762,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
+    // Feature: Watermark & Letterbox UI Toggles
+    const watermarkToggle = document.getElementById("watermarkToggle");
+    const letterboxToggle = document.getElementById("letterboxToggle");
+    const letterboxLabel = document.getElementById("letterboxLabel");
+
+    if (letterboxToggle && letterboxLabel) {
+        letterboxToggle.addEventListener("change", () => {
+            letterboxLabel.innerText = letterboxToggle.checked ? "ON" : "OFF";
+            letterboxLabel.style.color = letterboxToggle.checked ? "#34d399" : "var(--text-muted)";
+        });
+    }
+
     ["dragenter", "dragover"].forEach(evt => {
         dropZone.addEventListener(evt, (e) => {
             e.preventDefault();
@@ -997,6 +1009,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 logTerminal(`[INIT] YouTube URL: ${ytVideoData.url}`);
                 logTerminal(`[TRIM] Start: ${trimRange.start}s, End: ${trimRange.end}s`);
 
+                const watermarkToggle = document.getElementById("watermarkToggle");
+                const watermarkTextInput = document.getElementById("watermarkTextInput");
+                const letterboxToggle = document.getElementById("letterboxToggle");
+
                 const customSettings = {
                     video: {
                         mirror_flip: arsenalState.mirror_flip,
@@ -1005,7 +1021,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                         color_mood: arsenalState.color_tone ? (bgmMoodSelect ? bgmMoodSelect.value : "auto") : "none",
                         isolate_dialogue: arsenalState.isolate_dialogue,
                         smart_cuts: arsenalState.smart_cuts,
-                        poison_mesh: arsenalState.poison_mesh
+                        poison_mesh: arsenalState.poison_mesh,
+                        watermark: watermarkToggle ? watermarkToggle.checked : true,
+                        watermark_text: watermarkTextInput ? watermarkTextInput.value.trim() : "MovieVerse X",
+                        letterbox: letterboxToggle ? letterboxToggle.checked : false
                     },
                     audio: {
                         speed_ramp: arsenalState.audio_pitch,
@@ -1205,6 +1224,71 @@ document.addEventListener("DOMContentLoaded", async () => {
                 safeDownloadName = `safe_${nameWithoutExt.replace(/[^a-zA-Z0-9_-]/g, '_')}.mp4`;
             }
             downloadSafeBtn.download = safeDownloadName;
+
+            // Feature 2: Display Auto-Extracted YouTube Action Thumbnails
+            const thumbnailSection = document.getElementById("thumbnailSection");
+            const thumbsGrid = document.getElementById("thumbsGrid");
+            const rawThumbs = data?.transformed_meta?.thumbnails || [
+                `/api/thumbnail/${jobId}/1`,
+                `/api/thumbnail/${jobId}/2`,
+                `/api/thumbnail/${jobId}/3`
+            ];
+
+            if (thumbnailSection && thumbsGrid) {
+                thumbsGrid.innerHTML = "";
+                rawThumbs.forEach((thumbUrl, idx) => {
+                    const item = document.createElement("a");
+                    item.className = "thumb-card-item";
+                    item.href = thumbUrl;
+                    item.download = `thumbnail_${idx + 1}.jpg`;
+                    item.title = "Click to download full-res thumbnail";
+                    item.innerHTML = `
+                        <img src="${thumbUrl}" alt="Thumbnail ${idx + 1}" class="thumb-img-click" onerror="this.parentElement.style.display='none'">
+                        <span class="thumb-dl-badge">⬇️ Frame ${idx + 1}</span>
+                    `;
+                    thumbsGrid.appendChild(item);
+                });
+                thumbnailSection.style.display = "block";
+            }
+
+            // Feature 3: Auto-Generated YouTube SEO Title, Description & Tags
+            const seoTitleField = document.getElementById("seoTitleField");
+            const seoDescField = document.getElementById("seoDescField");
+            const btnCopyTitle = document.getElementById("btnCopyTitle");
+            const btnCopyDesc = document.getElementById("btnCopyDesc");
+
+            let movieName = "Action Movie";
+            if (currentInputMode === "youtube" && ytVideoData) {
+                movieName = ytVideoData.title || "Movie";
+            } else if (selectedFile) {
+                movieName = selectedFile.name.replace(/\.[^/.]+$/, "");
+            }
+            // Clean movieName
+            movieName = movieName.replace(/🎬|\[.*?\]|\(.*?\)/g, "").trim();
+
+            const generatedTitle = `${movieName} (Hindi Dubbed) | Full Action Scene | MovieVerse X`;
+            const generatedDesc = `🎬 Movie: ${movieName}\n🔥 Quality: 1080p Full HD\n⚡ Channel: MovieVerse X\n\n🔔 Subscribe to MovieVerse X for daily HD action movies & movie scenes!\n\n#MovieVerseX #ActionMovies #HindiDubbed #MovieScenes #1080pHD #Bollywood #Hollywood`;
+
+            if (seoTitleField) seoTitleField.value = generatedTitle;
+            if (seoDescField) seoDescField.value = generatedDesc;
+
+            if (btnCopyTitle) {
+                btnCopyTitle.onclick = () => {
+                    navigator.clipboard.writeText(generatedTitle).then(() => {
+                        btnCopyTitle.innerText = "✅ Copied!";
+                        setTimeout(() => btnCopyTitle.innerText = "📋 Copy Title", 2000);
+                    });
+                };
+            }
+
+            if (btnCopyDesc) {
+                btnCopyDesc.onclick = () => {
+                    navigator.clipboard.writeText(generatedDesc).then(() => {
+                        btnCopyDesc.innerText = "✅ Copied!";
+                        setTimeout(() => btnCopyDesc.innerText = "📋 Copy Description", 2000);
+                    });
+                };
+            }
 
             logTerminal(`[DONE] Video ready for publishing!`);
         }, 600);
