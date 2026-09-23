@@ -57,7 +57,40 @@ def probe_video(file_path: str) -> Dict[str, Any]:
         audio_stream = next((s for s in data.get("streams", []) if s.get("codec_type") == "audio"), None)
         
         format_info = data.get("format", {})
-        duration = float(format_info.get("duration", 0.0))
+        duration = 0.0
+        try:
+            duration = float(format_info.get("duration", 0.0) or 0.0)
+        except (ValueError, TypeError):
+            duration = 0.0
+
+        if duration <= 0 and video_stream:
+            try:
+                duration = float(video_stream.get("duration", 0.0) or 0.0)
+            except (ValueError, TypeError):
+                duration = 0.0
+
+        if duration <= 0 and audio_stream:
+            try:
+                duration = float(audio_stream.get("duration", 0.0) or 0.0)
+            except (ValueError, TypeError):
+                duration = 0.0
+
+        # Also check stream tags for DURATION (MKV / Matroska standard: "02:15:30.123000000")
+        if duration <= 0:
+            for s in data.get("streams", []):
+                tags = s.get("tags", {})
+                for k, v in tags.items():
+                    if "duration" in k.lower() and isinstance(v, str) and ":" in v:
+                        try:
+                            parts = v.split(":")
+                            if len(parts) == 3:
+                                duration = float(parts[0]) * 3600 + float(parts[1]) * 60 + float(parts[2])
+                                if duration > 0:
+                                    break
+                        except Exception:
+                            pass
+                if duration > 0:
+                    break
         
         return {
             "has_video": video_stream is not None,
