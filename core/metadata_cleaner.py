@@ -25,18 +25,31 @@ def get_clean_metadata_args() -> list:
 def probe_video(file_path: str) -> Dict[str, Any]:
     """
     Uses ffprobe to extract stream information, duration, resolution, and audio channels.
+    Supports remote CDN URLs (Gofile, HubCloud, FileDL) with User-Agent and timeout.
     """
+    is_remote = file_path.startswith("http://") or file_path.startswith("https://")
+
     cmd = [
         "ffprobe",
         "-v", "quiet",
         "-print_format", "json",
         "-show_format",
         "-show_streams",
-        file_path
     ]
-    
+
+    if is_remote:
+        cmd.extend([
+            "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "-timeout", "10000000",
+            "-reconnect", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "3",
+        ])
+
+    cmd.append(file_path)
+
     try:
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True, timeout=15)
         data = json.loads(result.stdout)
         
         video_stream = next((s for s in data.get("streams", []) if s.get("codec_type") == "video"), None)

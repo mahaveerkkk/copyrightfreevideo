@@ -112,7 +112,11 @@ def get_youtube_info(url: str) -> Dict[str, Any]:
             p_info = probe_video(url)
             duration = float(p_info.get("duration", 0.0) or 0.0)
         except Exception:
-            duration = 3600.0 # fallback duration if server blocks probe
+            duration = 0.0
+
+        # If probe failed or CDN blocked it, fallback to 3 hours so user can set end time manually
+        if duration <= 0:
+            duration = 10800.0  # 3 hours max — user will set actual end time
 
         filename = os.path.basename(url.split("?")[0]) or "Direct_Movie.mp4"
         return {

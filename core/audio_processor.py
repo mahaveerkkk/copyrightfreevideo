@@ -15,7 +15,7 @@ def build_audio_filter_graph(audio_config: dict, sample_rate: int = 44100) -> st
     5. Stereo Phase Widening (Decorrelates L/R channel acoustic fingerprint)
     6. Dynamic Audio Normalizer (Studio-grade output leveling)
     """
-    pitch_semitones = float(audio_config.get("pitch_semitones", 0.5))
+    pitch_semitones = float(audio_config.get("pitch_semitones", 0.3))
     target_tempo = float(audio_config.get("tempo", 1.03))
     notch = audio_config.get("notch_filter", True)
     stereo_widen = audio_config.get("stereo_widen", True)
@@ -61,12 +61,12 @@ def build_audio_filter_graph(audio_config: dict, sample_rate: int = 44100) -> st
     
     # 5. Spectral Notch Filter (attenuates Content ID sensitive frequency band ~3.2kHz)
     if notch:
-        filters.append("equalizer=f=3200:t=q:w=1.2:g=-2.5")
-        filters.append("equalizer=f=1200:t=q:w=1.5:g=-1.2")
+        filters.append("equalizer=f=3200:t=q:w=1.2:g=-1.5")
+        filters.append("equalizer=f=1200:t=q:w=1.5:g=-0.8")
         
     # 6. Stereo Phase Widening (decorrelates dual-channel acoustic fingerprints)
     if stereo_widen:
-        filters.append("stereowiden=delay=15:feedback=0.25:crossfeed=0.2:drymix=0.85")
+        filters.append("stereowiden=delay=12:feedback=0.15:crossfeed=0.12:drymix=0.90")
         
     # 7. Dynamic Audio Normalization (smooths amplitude spikes and boosts presence)
     if dyn_norm:
