@@ -41,6 +41,7 @@ def probe_video(file_path: str) -> Dict[str, Any]:
         cmd.extend([
             "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "-timeout", "10000000",
+            "-rw_timeout", "10000000",
             "-reconnect", "1",
             "-reconnect_streamed", "1",
             "-reconnect_delay_max", "3",

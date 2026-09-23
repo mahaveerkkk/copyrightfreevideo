@@ -158,12 +158,17 @@ def detect_hindi_or_best_audio_stream(url: str) -> Optional[int]:
     try:
         cmd = [
             "ffprobe", "-v", "error",
+            "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "-reconnect", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "3",
+            "-rw_timeout", "8000000",
             "-select_streams", "a",
             "-show_entries", "stream=index:stream_tags=language,title",
             "-of", "json",
             url
         ]
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=8)
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=10)
         if res.returncode == 0:
             import json as _json
             data = _json.loads(res.stdout)
@@ -248,37 +253,43 @@ def download_and_trim_youtube(
         if not v_url:
             raise RuntimeError("Could not resolve streaming URL from YouTube.")
 
-    # Construct FFmpeg HTTP Seek Command with Reconnect Resilience and Low RAM Buffer
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
+    # Construct FFmpeg HTTP Seek Command with Reconnect Resilience, Browser UA & Subtitle Suppression
     cmd = [
         "ffmpeg", "-y",
+        "-user_agent", USER_AGENT,
         "-reconnect", "1",
         "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "5",
+        "-rw_timeout", "15000000",
         "-threads", "2",
-        "-bufsize", "2000k",
+        "-bufsize", "4000k",
         "-ss", str(clip_start),
         "-i", v_url
     ]
 
     if a_url:
         cmd.extend([
+            "-user_agent", USER_AGENT,
             "-reconnect", "1",
             "-reconnect_at_eof", "1",
             "-reconnect_streamed", "1",
             "-reconnect_delay_max", "5",
+            "-rw_timeout", "15000000",
             "-ss", str(clip_start),
             "-i", a_url
         ])
 
-    cmd.extend(["-t", str(clip_duration)])
+    cmd.extend(["-t", str(clip_duration), "-sn"])
 
     if a_url:
         cmd.extend([
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
             "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
             "-c:a", "aac", "-b:a", "192k",
-            "-map", "0:v:0", "-map", "1:a:0",
+            "-map", "0:v:0", "-map", "1:a:0?",
             "-avoid_negative_ts", "make_zero"
         ])
     elif is_direct and best_audio_idx is not None:
@@ -286,7 +297,7 @@ def download_and_trim_youtube(
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
             "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
             "-c:a", "aac", "-b:a", "192k",
-            "-map", "0:v:0", "-map", f"0:{best_audio_idx}",
+            "-map", "0:v:0", "-map", f"0:{best_audio_idx}?",
             "-avoid_negative_ts", "make_zero"
         ])
     else:
@@ -305,18 +316,29 @@ def download_and_trim_youtube(
 
     res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if res.returncode != 0:
-        # Fallback if fast seek failed: try safe re-encode with zero timestamp alignment
+        # Fallback if fast seek failed: try safe re-encode with reconnect headers & subtitle suppression
         cmd_fallback = [
             "ffmpeg", "-y",
-            "-ss", str(clip_start), "-i", v_url,
+            "-user_agent", USER_AGENT,
+            "-reconnect", "1",
+            "-reconnect_at_eof", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "5",
+            "-rw_timeout", "15000000",
+            "-ss", str(clip_start),
+            "-i", v_url,
             "-t", str(clip_duration),
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-sn",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
             "-af", "aresample=async=1000:first_pts=0",
             "-map", "0:v:0", "-map", "0:a:0?",
             "-avoid_negative_ts", "make_zero",
             output_path
         ]
-        subprocess.run(cmd_fallback, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        res_fb = subprocess.run(cmd_fallback, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        if res_fb.returncode != 0:
+            err_msg = (res.stderr or res_fb.stderr or "")[-300:]
+            raise RuntimeError(f"FFmpeg stream capture error: {err_msg}")
 
     if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
         raise RuntimeError("Failed to generate trimmed video file from YouTube stream.")
