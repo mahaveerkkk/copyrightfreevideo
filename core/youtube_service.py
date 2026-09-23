@@ -110,44 +110,56 @@ def is_direct_video_link(url: str) -> bool:
 
 def resolve_direct_video_stream(url: str) -> dict:
     """
-    Follows HTTP redirects, parses Content-Disposition for the true movie filename,
-    and detects if the host CDN returned 403 Forbidden.
+    Resolves redirects, parses Content-Disposition for the true movie filename,
+    and extracts origin Referer using Python standard library (no pip dependency).
     """
-    import requests
     from urllib.parse import urlparse, unquote
+    import urllib.request
     import re
 
     parsed = urlparse(url)
     origin = f"{parsed.scheme}://{parsed.netloc}/"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Referer": origin,
-        "Accept": "*/*"
-    }
-
     final_url = url
-    real_filename = None
     is_blocked_403 = False
 
+    # Fast Path: If URL already points directly to a video file (.mkv, .mp4, etc.)
+    path_name = unquote(parsed.path.split("/")[-1])
+    if path_name and path_name.lower().endswith(('.mkv', '.mp4', '.webm', '.mov', '.avi', '.m4v')):
+        return {
+            "final_url": final_url,
+            "filename": path_name,
+            "origin": origin,
+            "is_blocked_403": False
+        }
+
+    # Otherwise, resolve redirect (e.g. for download.php or dynamic download links)
+    real_filename = None
     try:
-        resp = requests.get(url, headers=headers, stream=True, allow_redirects=True, timeout=8)
-        if resp.status_code == 403:
-            is_blocked_403 = True
-        else:
-            final_url = resp.url
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "Referer": origin,
+                "Accept": "*/*"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            final_url = resp.geturl()
             cd = resp.headers.get("Content-Disposition", "")
             if "filename=" in cd:
                 m = re.search(r'filename\*?=(?:UTF-8\'\')?["\']?([^"\';]+)["\']?', cd)
                 if m:
                     real_filename = unquote(m.group(1).strip())
-        resp.close()
+    except urllib.error.HTTPError as he:
+        if he.code == 403:
+            is_blocked_403 = True
     except Exception:
         pass
 
     if not real_filename:
-        path_name = unquote(urlparse(final_url).path.split("/")[-1])
-        if path_name and not path_name.lower().endswith(('.php', '.html', '.htm', '.jsp', '.asp')):
-            real_filename = path_name
+        p_name = unquote(urlparse(final_url).path.split("/")[-1])
+        if p_name and not p_name.lower().endswith(('.php', '.html', '.htm', '.jsp', '.asp')):
+            real_filename = p_name
         else:
             real_filename = "Direct_Movie.mp4"
 
@@ -164,12 +176,6 @@ def get_youtube_info(url: str) -> Dict[str, Any]:
     """
     if is_direct_video_link(url):
         res_info = resolve_direct_video_stream(url)
-        if res_info.get("is_blocked_403"):
-            raise ValueError(
-                "⚠️ Access Denied (403 Forbidden): Host server ne is link ko block kar diya hai. "
-                "Yeh link aapke phone/browser IP ke sath locked hai. "
-                "Solution: Browser me movie download shuru karein aur Chrome Downloads se final download link copy karein, ya file direct upload karein."
-            )
         resolved_url = res_info.get("final_url") or url
         filename = res_info.get("filename") or "Direct_Movie.mp4"
 
