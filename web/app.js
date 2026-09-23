@@ -76,13 +76,25 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Helper functions for time formatting
     function secondsToMMSS(sec) {
-        const m = Math.floor(sec / 60);
+        sec = Math.max(0, Math.round(sec));
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
         const s = Math.floor(sec % 60);
+        if (h > 0) {
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
         return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     }
 
     function mmssToSeconds(str) {
+        if (!str) return 0;
         const parts = str.trim().split(":");
+        if (parts.length === 3) {
+            const h = parseFloat(parts[0]) || 0;
+            const m = parseFloat(parts[1]) || 0;
+            const s = parseFloat(parts[2]) || 0;
+            return Math.max(0, h * 3600 + m * 60 + s);
+        }
         if (parts.length === 2) {
             const m = parseFloat(parts[0]) || 0;
             const s = parseFloat(parts[1]) || 0;

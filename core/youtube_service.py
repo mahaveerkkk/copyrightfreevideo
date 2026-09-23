@@ -92,8 +92,12 @@ def extract_with_client_fallback(url: str, download: bool = False, custom_opts: 
     raise RuntimeError("Unable to extract YouTube video with client fallback.")
 
 def format_time_str(seconds: float) -> str:
-    mins = int(seconds // 60)
-    secs = int(seconds % 60)
+    total_sec = max(0, int(seconds))
+    hours = total_sec // 3600
+    mins = (total_sec % 3600) // 60
+    secs = total_sec % 60
+    if hours > 0:
+        return f"{hours:02d}:{mins:02d}:{secs:02d}"
     return f"{mins:02d}:{secs:02d}"
 
 def is_direct_video_link(url: str) -> bool:
@@ -203,7 +207,7 @@ def download_and_trim_youtube(
         a_url = None
         clip_start = max(0.0, float(start_sec))
         if end_sec and end_sec > clip_start:
-            clip_duration = min(7200.0, float(end_sec) - clip_start)
+            clip_duration = min(14400.0, float(end_sec) - clip_start)
         else:
             clip_duration = 60.0
         if progress_callback:
@@ -223,9 +227,9 @@ def download_and_trim_youtube(
         total_duration = float(info.get('duration', 0) or 0)
         clip_start = max(0.0, float(start_sec))
         if end_sec and end_sec > clip_start:
-            clip_duration = min(7200.0, float(end_sec) - clip_start)
+            clip_duration = min(14400.0, float(end_sec) - clip_start)
         else:
-            clip_duration = min(7200.0, total_duration) if total_duration > 0 else 45.0
+            clip_duration = min(14400.0, total_duration) if total_duration > 0 else 45.0
 
         if progress_callback:
             progress_callback(25.0, f"Capturing direct {int(clip_duration)}s clip from stream...")
