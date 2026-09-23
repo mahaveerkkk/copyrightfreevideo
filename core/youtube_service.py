@@ -9,7 +9,10 @@ import os
 import re
 import subprocess
 from typing import Dict, Any, Optional, List
-import yt_dlp
+try:
+    import yt_dlp
+except ImportError:
+    yt_dlp = None
 
 COOKIES_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cookies.txt')
 
@@ -130,49 +133,78 @@ def get_gofile_token() -> str:
 
 def resolve_direct_video_stream(url: str) -> dict:
     """
-    Resolves redirects, parses Content-Disposition for the true movie filename,
-    and extracts origin Referer using Python standard library (no pip dependency).
+    Validates direct stream URLs, follows redirects, checks Content-Type,
+    and extracts origin Referer using Python standard library.
+    Raises clear, helpful ValueError if the host returns HTML/403/404 or Gofile error-notPremium.
     """
     from urllib.parse import urlparse, unquote
     import urllib.request
+    import urllib.error
     import re
 
     parsed = urlparse(url)
     origin = f"{parsed.scheme}://{parsed.netloc}/"
     final_url = url
-    is_blocked_403 = False
 
-    # Fast Path: If URL already points directly to a video file (.mkv, .mp4, etc.)
-    path_name = unquote(parsed.path.split("/")[-1])
-    if path_name and path_name.lower().endswith(('.mkv', '.mp4', '.webm', '.mov', '.avi', '.m4v')):
-        return {
-            "final_url": final_url,
-            "filename": path_name,
-            "origin": origin,
-            "is_blocked_403": False
-        }
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": origin,
+        "Accept": "*/*",
+        "Range": "bytes=0-2048"
+    }
 
-    # Otherwise, resolve redirect (e.g. for download.php or dynamic download links)
+    if "gofile.io" in url.lower():
+        tok = get_gofile_token()
+        if tok:
+            headers["Cookie"] = f"accountToken={tok}"
+            headers["Authorization"] = f"Bearer {tok}"
+
     real_filename = None
     try:
-        req = urllib.request.Request(
-            url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                "Referer": origin,
-                "Accept": "*/*"
-            }
-        )
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=8) as resp:
             final_url = resp.geturl()
+            ct = (resp.headers.get("Content-Type") or "").lower()
             cd = resp.headers.get("Content-Disposition", "")
+
+            # Check if host redirected to an HTML webpage instead of video stream
+            if "text/html" in ct or "text/plain" in ct or "/d/" in final_url:
+                if "gofile.io" in url.lower() or "gofile.io" in final_url.lower():
+                    raise ValueError(
+                        "Gofile Server Error: Yeh movie link free users ke liye locked/expired hai (Gofile Error: 'error-notPremium'). "
+                        "Direct stream nahi chal sakti. Agar aapne movie pehle se apne phone/laptop me download kar li hai, to 'Upload Video' tab se direct file upload karein (1-2GB support hai), ya YouTube / HubCloud ka link use karein."
+                    )
+                raise ValueError(
+                    "Yeh link video stream nahi balki HTML Web Page return kar raha hai (Link expire ya redirect ho gaya hai). "
+                    "Kripya direct video link use karein ya file ko download karke 'Upload Video' tab se direct upload karein."
+                )
+
+            # Check initial chunk for HTML tags disguised as 200 OK
+            chunk = resp.read(512)
+            if b"<!doctype" in chunk.lower() or b"<html" in chunk.lower():
+                raise ValueError(
+                    "Server ne video stream ke badle HTML webpage bheja hai. Yeh download link expire ho chuka hai."
+                )
+
             if "filename=" in cd:
                 m = re.search(r'filename\*?=(?:UTF-8\'\')?["\']?([^"\';]+)["\']?', cd)
                 if m:
                     real_filename = unquote(m.group(1).strip())
+
     except urllib.error.HTTPError as he:
         if he.code == 403:
-            is_blocked_403 = True
+            raise ValueError(
+                "CDN Server ne access deny kar diya (403 Forbidden - IP/Session protected). "
+                "Yeh host direct streaming allow nahi karta. Kripya video file download karke 'Upload Video' tab se upload karein."
+            )
+        elif he.code == 404:
+            raise ValueError("File server par nahi mili (404 Not Found). Yeh download link expire ya delete ho chuka hai.")
+        elif he.code != 416:
+            raise ValueError(f"Stream server error (HTTP {he.code}): Direct stream open nahi ho saki.")
+    except urllib.error.URLError as ue:
+        raise ValueError(f"Stream connect error: {ue.reason}")
+    except ValueError:
+        raise
     except Exception:
         pass
 
@@ -187,12 +219,12 @@ def resolve_direct_video_stream(url: str) -> dict:
         "final_url": final_url,
         "filename": real_filename,
         "origin": origin,
-        "is_blocked_403": is_blocked_403
+        "is_blocked_403": False
     }
 
 def get_youtube_info(url: str) -> Dict[str, Any]:
     """
-    Extracts metadata from YouTube URL or Direct Movie Download URL (9xflix, Filmyfly, etc.).
+    Extracts metadata from YouTube URL or Direct Movie Download URL (HubCloud, Gofile, 9xflix, etc.).
     """
     if is_direct_video_link(url):
         res_info = resolve_direct_video_stream(url)
@@ -201,15 +233,18 @@ def get_youtube_info(url: str) -> Dict[str, Any]:
 
         # Direct Movie CDN link probe
         from core.metadata_cleaner import probe_video
-        try:
-            p_info = probe_video(resolved_url)
-            duration = float(p_info.get("duration", 0.0) or 0.0)
-        except Exception:
-            duration = 0.0
+        p_info = probe_video(resolved_url)
+        if not p_info.get("has_video"):
+            err_details = p_info.get("error", "Stream unreadable")
+            raise ValueError(
+                f"Video stream verify nahi ho saki ({err_details}). Server se valid video stream data nahi mil raha. "
+                "Kripya link check karein ya video file ko download karke 'Upload Video' tab se direct upload karein."
+            )
 
-        # If probe failed or CDN blocked it, fallback to 3 hours so user can set end time manually
+        duration = float(p_info.get("duration", 0.0) or 0.0)
+        # Fallback to 3 hours only if video exists but container omitted total duration tag
         if duration <= 0:
-            duration = 10800.0  # 3 hours max — user will set actual end time
+            duration = 10800.0
 
         return {
             "title": f"🎬 {filename}",
@@ -305,7 +340,8 @@ def download_and_trim_youtube(
     best_audio_idx = None
 
     if is_direct:
-        v_url = url
+        res_info = resolve_direct_video_stream(url)
+        v_url = res_info.get("final_url") or url
         a_url = None
         clip_start = max(0.0, float(start_sec))
         if end_sec and end_sec > clip_start:

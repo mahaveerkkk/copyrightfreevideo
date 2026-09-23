@@ -41,8 +41,17 @@ def probe_video(file_path: str) -> Dict[str, Any]:
         from urllib.parse import urlparse
         p_u = urlparse(file_path)
         origin = f"{p_u.scheme}://{p_u.netloc}/"
+        headers_str = f"Referer: {origin}\r\n"
+        if "gofile.io" in file_path.lower():
+            try:
+                from core.youtube_service import get_gofile_token
+                tok = get_gofile_token()
+                if tok:
+                    headers_str += f"Cookie: accountToken={tok}\r\nAuthorization: Bearer {tok}\r\n"
+            except Exception:
+                pass
         cmd.extend([
-            "-headers", f"Referer: {origin}\r\n",
+            "-headers", headers_str,
             "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "-timeout", "15000000",
             "-rw_timeout", "15000000",

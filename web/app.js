@@ -593,7 +593,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             updateButtonLabel();
 
         } catch (err) {
-            alert(`YouTube Error: ${err.message}`);
+            const isYt = url.includes("youtube.com") || url.includes("youtu.be");
+            alert(`${isYt ? "YouTube Error" : "Stream Error"}: ${err.message}`);
         } finally {
             fetchBtnSpinner.style.display = "none";
             fetchBtnText.innerText = "Fetch Video";
