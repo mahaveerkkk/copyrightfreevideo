@@ -108,7 +108,7 @@ def is_direct_video_link(url: str) -> bool:
     clean = url.split("?")[0].lower()
     return (
         clean.endswith(('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v')) or
-        '/download' in clean or 'cloud' in clean or 'filesdl' in clean or 'gofile' in clean or 'indishare' in clean
+        '/download' in clean or 'cloud' in clean or 'filesdl' in clean or 'gofile' in clean or 'indishare' in clean or 'pixeldrain' in clean
     )
 
 _GOFILE_TOKEN = None
@@ -141,6 +141,12 @@ def resolve_direct_video_stream(url: str) -> dict:
     import urllib.request
     import urllib.error
     import re
+
+    # Pixeldrain Auto-Converter: Convert https://pixeldrain.com/u/<id> to direct stream https://pixeldrain.com/api/file/<id>
+    if "pixeldrain." in url.lower() and "/u/" in url:
+        file_id = url.split("/u/")[-1].split("?")[0].split("/")[0].strip()
+        if file_id:
+            url = f"https://pixeldrain.com/api/file/{file_id}"
 
     parsed = urlparse(url)
     origin = f"{parsed.scheme}://{parsed.netloc}/"
