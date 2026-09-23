@@ -103,7 +103,10 @@ def format_time_str(seconds: float) -> str:
 def is_direct_video_link(url: str) -> bool:
     """Checks if a URL is a direct video download/stream link."""
     clean = url.split("?")[0].lower()
-    return clean.endswith(('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v')) or '/download' in clean
+    return (
+        clean.endswith(('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v')) or
+        '/download' in clean or 'cloud' in clean or 'filesdl' in clean or 'gofile' in clean or 'indishare' in clean
+    )
 
 def get_youtube_info(url: str) -> Dict[str, Any]:
     """
@@ -309,15 +312,12 @@ def download_and_trim_youtube(
             "-avoid_negative_ts", "make_zero"
         ])
 
-    cmd.extend(["-movflags", "+faststart", output_path])
-
-    if progress_callback:
-        progress_callback(35.0, "Writing trimmed clip container to disk...")
-
-    res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-    if res.returncode != 0:
-        # Fallback if fast seek failed: try safe re-encode with reconnect headers & subtitle suppression
-        cmd_fallback = [
+    # Try Fast Direct Stream Copy first if is_direct (completes 10min clip in 3-5 seconds without re-encode)
+    copy_success = False
+    if is_direct:
+        if progress_callback:
+            progress_callback(28.0, "Attempting high-speed zero-loss stream cut...")
+        cmd_copy = [
             "ffmpeg", "-y",
             "-user_agent", USER_AGENT,
             "-reconnect", "1",
@@ -329,16 +329,62 @@ def download_and_trim_youtube(
             "-i", v_url,
             "-t", str(clip_duration),
             "-sn",
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
-            "-af", "aresample=async=1000:first_pts=0",
-            "-map", "0:v:0", "-map", "0:a:0?",
+            "-c", "copy",
             "-avoid_negative_ts", "make_zero",
+            "-movflags", "+faststart",
             output_path
         ]
-        res_fb = subprocess.run(cmd_fallback, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-        if res_fb.returncode != 0:
-            err_msg = (res.stderr or res_fb.stderr or "")[-300:]
-            raise RuntimeError(f"FFmpeg stream capture error: {err_msg}")
+        res_copy = subprocess.run(cmd_copy, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if res_copy.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
+            copy_success = True
+
+    if not copy_success:
+        cmd.extend(["-progress", "pipe:1", "-movflags", "+faststart", output_path])
+
+        if progress_callback:
+            progress_callback(30.0, "Writing trimmed clip container to disk...")
+
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+        out_time_pattern = re.compile(r"out_time_ms=(\d+)")
+
+        while True:
+            line = proc.stdout.readline()
+            if not line and proc.poll() is not None:
+                break
+            line = line.strip()
+            match = out_time_pattern.search(line)
+            if match and clip_duration > 0:
+                current_ms = int(match.group(1))
+                current_sec = current_ms / 1_000_000.0
+                pct = 30.0 + (min(current_sec / clip_duration, 1.0) * 9.5)
+                if progress_callback:
+                    progress_callback(min(pct, 39.5), f"Capturing clip: {int(current_sec)}s / {int(clip_duration)}s ({int(min(current_sec/clip_duration, 1.0)*100)}%)...")
+
+        retcode = proc.wait()
+        if retcode != 0:
+            # Fallback if fast seek failed: try safe re-encode with reconnect headers & subtitle suppression
+            cmd_fallback = [
+                "ffmpeg", "-y",
+                "-user_agent", USER_AGENT,
+                "-reconnect", "1",
+                "-reconnect_at_eof", "1",
+                "-reconnect_streamed", "1",
+                "-reconnect_delay_max", "5",
+                "-rw_timeout", "15000000",
+                "-ss", str(clip_start),
+                "-i", v_url,
+                "-t", str(clip_duration),
+                "-sn",
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
+                "-af", "aresample=async=1000:first_pts=0",
+                "-map", "0:v:0", "-map", "0:a:0?",
+                "-avoid_negative_ts", "make_zero",
+                output_path
+            ]
+            res_fb = subprocess.run(cmd_fallback, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+            if res_fb.returncode != 0:
+                err_msg = (res_fb.stderr or "")[-300:]
+                raise RuntimeError(f"FFmpeg stream capture error: {err_msg}")
 
     if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
         raise RuntimeError("Failed to generate trimmed video file from YouTube stream.")
@@ -458,6 +504,7 @@ def download_media_file(url: str, quality: str, output_path: str) -> str:
             "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "-i", url,
             "-c", "copy",
+            "-sn",
             "-avoid_negative_ts", "make_zero",
             output_path
         ]

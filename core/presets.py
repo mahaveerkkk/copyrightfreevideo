@@ -22,7 +22,7 @@ PRESETS = {
         },
         "audio": {
             "pitch_semitones": 0.3,
-            "tempo": 1.03,
+            "tempo": 1.0,
             "notch_filter": True,
             "stereo_widen": True,
             "dyn_norm": True
@@ -47,7 +47,7 @@ PRESETS = {
         },
         "audio": {
             "pitch_semitones": 0.35,
-            "tempo": 1.035,
+            "tempo": 1.0,
             "notch_filter": False,
             "stereo_widen": True,
             "dyn_norm": True
@@ -72,7 +72,7 @@ PRESETS = {
         },
         "audio": {
             "pitch_semitones": 0.25,
-            "tempo": 1.025,
+            "tempo": 1.0,
             "notch_filter": True,
             "stereo_widen": True,
             "dyn_norm": True
@@ -97,7 +97,7 @@ PRESETS = {
         },
         "audio": {
             "pitch_semitones": 0.45,
-            "tempo": 1.04,
+            "tempo": 1.0,
             "notch_filter": True,
             "stereo_widen": True,
             "dyn_norm": True

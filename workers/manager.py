@@ -7,6 +7,7 @@ interactive cancellation, and automatic multi-part batch splitting.
 import os
 import uuid
 import shutil
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any, Optional, List
 from core.engine import VideoTransformer, ACTIVE_PROCESSES
@@ -134,6 +135,8 @@ def cancel_batch(batch_id: str) -> int:
             jid = r["job_id"]
             cancel_job(jid)
             cancelled_count += 1
+    return cancelled_count
+
 def extract_job_thumbnails(output_path: str, job_id: str) -> List[str]:
     """Extracts 3 sharp, distinct action frames to serve as YouTube thumbnails."""
     from api.config import OUTPUT_DIR

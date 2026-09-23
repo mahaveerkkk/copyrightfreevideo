@@ -16,7 +16,7 @@ def build_audio_filter_graph(audio_config: dict, sample_rate: int = 44100) -> st
     6. Dynamic Audio Normalizer (Studio-grade output leveling)
     """
     pitch_semitones = float(audio_config.get("pitch_semitones", 0.3))
-    target_tempo = float(audio_config.get("tempo", 1.03))
+    target_tempo = float(audio_config.get("tempo", 1.0))
     notch = audio_config.get("notch_filter", True)
     stereo_widen = audio_config.get("stereo_widen", True)
     dyn_norm = audio_config.get("dyn_norm", True)

@@ -178,9 +178,10 @@ def build_video_filter_graph(video_config: dict, is_vertical_source: bool = Fals
     # 10. Cinematic Letterbox (2.35:1 Black Bars - Hides pirate website watermarks & adds Hollywood look)
     letterbox = video_config.get("letterbox", False)
     if letterbox:
-        # Crop to 2.35:1 aspect and pad back with black bars to original height
-        filters.append("crop=w=iw:h='2*trunc(iw/2.35/2)':x=0:y='(ih-out_h)/2'")
-        filters.append("pad=w=iw:h='2*trunc(ih/2)':x=0:y='(oh-ih)/2':color=black")
+        # Paint Hollywood 2.35:1 black bars on top and bottom to mask website watermarks (e.g. 9xflix)
+        bar_h = "(ih-2*trunc(iw/2.35/2))/2"
+        filters.append(f"drawbox=x=0:y=0:w=iw:h='{bar_h}':color=black:t=fill")
+        filters.append(f"drawbox=x=0:y='ih-({bar_h})':w=iw:h='{bar_h}':color=black:t=fill")
 
     # 11. Channel Branding Watermark (e.g. "MovieVerse X")
     watermark_text = video_config.get("watermark_text", "MovieVerse X")

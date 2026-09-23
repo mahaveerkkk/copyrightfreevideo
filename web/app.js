@@ -695,23 +695,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
         const res = await fetch("/api/presets");
         const presets = await res.json();
-        presetsContainer.innerHTML = "";
+        if (presetsContainer) {
+            presetsContainer.innerHTML = "";
 
-        presets.forEach(p => {
-            const card = document.createElement("div");
-            card.className = `preset-pill-card ${p.id === selectedPreset ? "active" : ""}`;
-            card.dataset.id = p.id;
-            card.innerHTML = `
-                <div class="preset-pill-name">${p.name}</div>
-                <div class="preset-pill-desc">${p.description}</div>
-            `;
-            card.addEventListener("click", () => {
-                document.querySelectorAll(".preset-pill-card").forEach(c => c.classList.remove("active"));
-                card.classList.add("active");
-                selectedPreset = p.id;
+            presets.forEach(p => {
+                const card = document.createElement("div");
+                card.className = `preset-pill-card ${p.id === selectedPreset ? "active" : ""}`;
+                card.dataset.id = p.id;
+                card.innerHTML = `
+                    <div class="preset-pill-name">${p.name}</div>
+                    <div class="preset-pill-desc">${p.description}</div>
+                `;
+                card.addEventListener("click", () => {
+                    document.querySelectorAll(".preset-pill-card").forEach(c => c.classList.remove("active"));
+                    card.classList.add("active");
+                    selectedPreset = p.id;
+                });
+                presetsContainer.appendChild(card);
             });
-            presetsContainer.appendChild(card);
-        });
+        }
     } catch (err) {
         console.error("Failed to load presets", err);
     }
@@ -941,15 +943,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         subStatusText.innerText = "Validating binary integrity...";
 
         // Step 3: Complete & Trigger Job
+        const watermarkToggle = document.getElementById("watermarkToggle");
+        const watermarkTextInput = document.getElementById("watermarkTextInput");
+        const letterboxToggle = document.getElementById("letterboxToggle");
+
         const customSettings = {
             video: {
                 mirror_flip: arsenalState.mirror_flip,
                 border_frame: arsenalState.border_frame,
                 dynamic_camera: arsenalState.dynamic_camera,
-                color_mood: arsenalState.color_tone ? (bgmMoodSelect ? bgmMoodSelect.value : "auto") : "none",
+                color_mood: arsenalState.color_tone ? "auto" : "none",
                 isolate_dialogue: arsenalState.isolate_dialogue,
                 smart_cuts: arsenalState.smart_cuts,
-                poison_mesh: arsenalState.poison_mesh
+                poison_mesh: arsenalState.poison_mesh,
+                watermark: watermarkToggle ? watermarkToggle.checked : true,
+                watermark_text: watermarkTextInput ? watermarkTextInput.value.trim() : "MovieVerse X",
+                letterbox: letterboxToggle ? letterboxToggle.checked : false
             },
             audio: {
                 speed_ramp: arsenalState.audio_pitch,
@@ -1018,7 +1027,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         mirror_flip: arsenalState.mirror_flip,
                         border_frame: arsenalState.border_frame,
                         dynamic_camera: arsenalState.dynamic_camera,
-                        color_mood: arsenalState.color_tone ? (bgmMoodSelect ? bgmMoodSelect.value : "auto") : "none",
+                        color_mood: arsenalState.color_tone ? "auto" : "none",
                         isolate_dialogue: arsenalState.isolate_dialogue,
                         smart_cuts: arsenalState.smart_cuts,
                         poison_mesh: arsenalState.poison_mesh,
