@@ -19,10 +19,11 @@ PRESETS = {
             "vignette": True,
             "sharpen": True,
             "fps_target": 29.97,
+            "letterbox": True,
         },
         "audio": {
-            "pitch_semitones": 0.3,
-            "tempo": 1.0,
+            "pitch_semitones": 0.55,
+            "tempo": 1.025,
             "notch_filter": True,
             "stereo_widen": True,
             "dyn_norm": True

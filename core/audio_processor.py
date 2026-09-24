@@ -59,10 +59,11 @@ def build_audio_filter_graph(audio_config: dict, sample_rate: int = 44100) -> st
         filters.append("equalizer=f=320:t=q:w=1.4:g=2.2")
         filters.append("equalizer=f=820:t=q:w=1.2:g=-1.5")
     
-    # 5. Spectral Notch Filter (attenuates Content ID sensitive frequency band ~3.2kHz)
+    # 5. Multi-Band Spectral Notch Filter (disrupts Content ID acoustic fingerprint constellations)
     if notch:
-        filters.append("equalizer=f=3200:t=q:w=1.2:g=-1.5")
-        filters.append("equalizer=f=1200:t=q:w=1.5:g=-0.8")
+        filters.append("equalizer=f=1000:t=q:w=1.8:g=-2.5")
+        filters.append("equalizer=f=2400:t=q:w=1.6:g=-3.5")
+        filters.append("equalizer=f=3600:t=q:w=1.4:g=-3.0")
         
     # 6. Stereo Phase Widening (decorrelates dual-channel acoustic fingerprints)
     if stereo_widen:
