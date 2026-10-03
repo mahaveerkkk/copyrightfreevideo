@@ -840,8 +840,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         smart_cuts: true,      // AI Smart Cuts: 0.15s invisible cuts every 5.5s to destroy 10s match
         poison_mesh: true,     // Transparent Dynamic Poison Mesh: 1.8% noise to scramble pHash
         formant_natural: true, // Formant Voice Naturalizer: Keeps voice rich & prevents chipmunk
-        mirror_flip: false,    // Optional: Kept OFF to prevent unnatural backward video
-        border_frame: false    // Optional: 2% clean black border
+        mirror_flip: true,     // Hollywood & Disney Shield: Inverts spatial coordinates to blind bots
+        border_frame: true     // Cinematic 2% clean black border to break full-screen pixel grid
     };
 
     function setupArsenalToggle(card, key) {

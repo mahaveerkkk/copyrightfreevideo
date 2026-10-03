@@ -20,10 +20,12 @@ PRESETS = {
             "sharpen": True,
             "fps_target": 29.97,
             "letterbox": True,
+            "mirror_flip": True,
+            "border_frame": True,
         },
         "audio": {
-            "pitch_semitones": 0.55,
-            "tempo": 1.025,
+            "pitch_semitones": 0.65,
+            "tempo": 1.035,
             "notch_filter": True,
             "stereo_widen": True,
             "dyn_norm": True

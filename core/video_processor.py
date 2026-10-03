@@ -27,7 +27,7 @@ def build_dynamic_camera_filtergraph(style: str = "random", seed: int = 42) -> s
     if style == "random" or style not in ["center_punch", "slow_creep", "subtle_pan", "macro_focus", "micro_pulse"]:
         style = rng.choice(["center_punch", "slow_creep", "subtle_pan", "macro_focus", "micro_pulse"])
         
-    zoom_scale = round(rng.uniform(1.02, 1.04), 3)
+    zoom_scale = round(rng.uniform(1.07, 1.10), 3)
     interval = rng.choice([5, 6, 7, 8])
     double_interval = interval * 2
 
@@ -46,24 +46,24 @@ def build_dynamic_camera_filtergraph(style: str = "random", seed: int = 42) -> s
             rf"scale=w='2*trunc(iw/2)':h='2*trunc(ih/2)'"
         )
     elif style == "macro_focus":
-        # 4% macro zoom cut on odd intervals
+        # 8% macro zoom cut on odd intervals
         return (
-            rf"crop=w='if(lt(mod(t\,{interval*2})\,{interval})\,2*trunc(iw/(2*1.04))\,2*trunc(iw/2))':"
-            rf"h='if(lt(mod(t\,{interval*2})\,{interval})\,2*trunc(ih/(2*1.04))\,2*trunc(ih/2))',"
+            rf"crop=w='if(lt(mod(t\,{interval*2})\,{interval})\,2*trunc(iw/(2*1.08))\,2*trunc(iw/2))':"
+            rf"h='if(lt(mod(t\,{interval*2})\,{interval})\,2*trunc(ih/(2*1.08))\,2*trunc(ih/2))',"
             rf"scale=w='2*trunc(iw/2)':h='2*trunc(ih/2)'"
         )
     elif style == "subtle_pan":
         # Dynamic coordinate shift
         return (
-            rf"crop=w='2*trunc(iw/(2*1.03))':h='2*trunc(ih/(2*1.03))':"
-            rf"x='(in_w-out_w)/2 + (in_w*0.015)*sin(2*PI*t/{interval*2})':"
+            rf"crop=w='2*trunc(iw/(2*1.06))':h='2*trunc(ih/(2*1.06))':"
+            rf"x='(in_w-out_w)/2 + (in_w*0.025)*sin(2*PI*t/{interval*2})':"
             rf"y='(in_h-out_h)/2',"
             rf"scale=w='2*trunc(iw/2)':h='2*trunc(ih/2)'"
         )
     else: # micro_pulse
         return (
-            rf"crop=w='if(lt(mod(t\,6)\,1)\,2*trunc(iw/(2*1.03))\,2*trunc(iw/2))':"
-            rf"h='if(lt(mod(t\,6)\,1)\,2*trunc(ih/(2*1.03))\,2*trunc(ih/2))',"
+            rf"crop=w='if(lt(mod(t\,6)\,1)\,2*trunc(iw/(2*1.06))\,2*trunc(iw/2))':"
+            rf"h='if(lt(mod(t\,6)\,1)\,2*trunc(ih/(2*1.06))\,2*trunc(ih/2))',"
             rf"scale=w='2*trunc(iw/2)':h='2*trunc(ih/2)'"
         )
 
