@@ -191,7 +191,13 @@ async def fetch_youtube_video_info(url: str = Form(...)):
         info = get_youtube_info(url)
         return info
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        err_msg = str(e)
+        if "This video is unavailable" in err_msg or "video unavailable" in err_msg.lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Yeh video YouTube par available nahi hai (Video owner ne delete kar di hai, Private hai ya Region-Blocked hai). Kripya valid working YouTube video URL use karein."
+            )
+        raise HTTPException(status_code=400, detail=err_msg)
 
 # 0.1 YouTube: Auto-Find Viral Hooks (Studio 2)
 @router.post("/youtube/find-hooks")

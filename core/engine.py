@@ -125,7 +125,7 @@ class VideoTransformer:
             split_vf = build_split_screen_filter(video_filters)
             cmd.extend(["-filter_complex", split_vf, "-map", "[outv]"])
         else:
-            cmd.extend(["-vf", video_filters, "-map", "0:v:0"])
+            cmd.extend(["-vf", video_filters, "-map", "0:V:0?"])
             
         # Video encoding parameters — optimized for 1GB RAM & 10-30 min movie streams
         cmd.extend([

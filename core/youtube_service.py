@@ -50,12 +50,12 @@ def extract_with_client_fallback(url: str, download: bool = False, custom_opts: 
     node_bin = shutil.which('node') or ('/home/veer/.nvm/versions/node/v24.16.0/bin/node' if os.path.exists('/home/veer/.nvm/versions/node/v24.16.0/bin/node') else None)
 
     client_strategies = [
-        # Strategy 1: TV Embedded / VisionOS (bypasses bot challenges, gives all resolutions up to 4K)
-        ({'extractor_args': {'youtube': {'player_client': ['visionos', 'tv']}}}, False),
-        # Strategy 2: Android + Web combo (most reliable on Cloud/Railway datacenter IPs)
+        # Strategy 1: Android + Web combo (most reliable on Cloud/Railway datacenter IPs)
         ({'extractor_args': {'youtube': {'player_client': ['android', 'web']}}}, False),
-        # Strategy 3: Pure Android client (no cookies)
-        ({'extractor_args': {'youtube': {'player_client': ['android']}}}, False),
+        # Strategy 2: iOS / MWeb
+        ({'extractor_args': {'youtube': {'player_client': ['ios', 'mweb']}}}, False),
+        # Strategy 3: TV Embedded / VisionOS (fallback)
+        ({'extractor_args': {'youtube': {'player_client': ['visionos', 'tv']}}}, False),
         # Strategy 4: Web Creator & MWeb with cookies if available
         ({'extractor_args': {'youtube': {'player_client': ['web_creator', 'mweb']}}}, True),
         # Strategy 5: Standard default
@@ -91,6 +91,9 @@ def extract_with_client_fallback(url: str, download: bool = False, custom_opts: 
             continue
 
     if last_err:
+        err_msg = str(last_err)
+        if "This video is unavailable" in err_msg or "video unavailable" in err_msg.lower():
+            raise ValueError("Yeh video YouTube par available nahi hai (Owner ne delete kar di hai, Private hai ya Region Restricted hai). Kripya doosri video ka link use karein.")
         raise last_err
     raise RuntimeError("Unable to extract YouTube video with client fallback.")
 
@@ -365,7 +368,7 @@ def download_and_trim_youtube(
     else:
         # Extract direct video and audio streaming URLs from YouTube
         custom_opts = {
-            'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best',
+            'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best',
             'skip_download': True
         }
         info = extract_with_client_fallback(url, download=False, custom_opts=custom_opts)
@@ -438,34 +441,56 @@ def download_and_trim_youtube(
     if a_url:
         cmd.extend([
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+            "-pix_fmt", "yuv420p",
             "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
             "-c:a", "aac", "-b:a", "192k",
-            "-map", "0:v:0", "-map", "1:a:0?",
+            "-map", "0:V:0?", "-map", "1:a:0?",
             "-avoid_negative_ts", "make_zero"
         ])
     elif is_direct and best_audio_idx is not None:
         cmd.extend([
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+            "-pix_fmt", "yuv420p",
             "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
             "-c:a", "aac", "-b:a", "192k",
-            "-map", "0:v:0", "-map", f"0:{best_audio_idx}?",
+            "-map", "0:V:0?", "-map", f"0:{best_audio_idx}?",
             "-avoid_negative_ts", "make_zero"
         ])
     else:
         cmd.extend([
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+            "-pix_fmt", "yuv420p",
             "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
             "-c:a", "aac", "-b:a", "192k",
-            "-map", "0:v:0", "-map", "0:a:0?",
+            "-map", "0:V:0?", "-map", "0:a:0?",
             "-avoid_negative_ts", "make_zero"
         ])
 
-    # Try Fast Direct Stream Copy first if is_direct (completes 10min clip in 3-5 seconds without re-encode)
-    copy_success = False
-    if is_direct:
-        if progress_callback:
-            progress_callback(28.0, "Attempting high-speed zero-loss stream cut...")
-        cmd_copy = [
+    cmd.extend(["-progress", "pipe:1", "-movflags", "+faststart", output_path])
+
+    if progress_callback:
+        progress_callback(30.0, "Writing clean keyframe-aligned clip to disk...")
+
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+    out_time_pattern = re.compile(r"out_time_ms=(\d+)")
+
+    while True:
+        line = proc.stdout.readline()
+        if not line and proc.poll() is not None:
+            break
+        line = line.strip()
+        match = out_time_pattern.search(line)
+        if match and clip_duration > 0:
+            current_ms = int(match.group(1))
+            current_sec = current_ms / 1_000_000.0
+            pct = 30.0 + (min(current_sec / clip_duration, 1.0) * 9.5)
+            if progress_callback:
+                progress_callback(min(pct, 39.5), f"Capturing clip: {int(current_sec)}s / {int(clip_duration)}s ({int(min(current_sec/clip_duration, 1.0)*100)}%)...")
+
+    retcode = proc.wait()
+    if retcode != 0:
+        # Fallback if fast seek failed: try safe re-encode with reconnect headers & subtitle suppression
+        cmd_fallback = [
             "ffmpeg", "-y",
             "-headers", origin_header,
             "-user_agent", USER_AGENT,
@@ -478,63 +503,18 @@ def download_and_trim_youtube(
             "-i", v_url,
             "-t", str(clip_duration),
             "-sn",
-            "-c", "copy",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            "-af", "aresample=async=1000:first_pts=0",
+            "-c:a", "aac", "-b:a", "192k",
+            "-map", "0:V:0?", "-map", "0:a:0?",
             "-avoid_negative_ts", "make_zero",
-            "-movflags", "+faststart",
             output_path
         ]
-        res_copy = subprocess.run(cmd_copy, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if res_copy.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
-            copy_success = True
-
-    if not copy_success:
-        cmd.extend(["-progress", "pipe:1", "-movflags", "+faststart", output_path])
-
-        if progress_callback:
-            progress_callback(30.0, "Writing trimmed clip container to disk...")
-
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
-        out_time_pattern = re.compile(r"out_time_ms=(\d+)")
-
-        while True:
-            line = proc.stdout.readline()
-            if not line and proc.poll() is not None:
-                break
-            line = line.strip()
-            match = out_time_pattern.search(line)
-            if match and clip_duration > 0:
-                current_ms = int(match.group(1))
-                current_sec = current_ms / 1_000_000.0
-                pct = 30.0 + (min(current_sec / clip_duration, 1.0) * 9.5)
-                if progress_callback:
-                    progress_callback(min(pct, 39.5), f"Capturing clip: {int(current_sec)}s / {int(clip_duration)}s ({int(min(current_sec/clip_duration, 1.0)*100)}%)...")
-
-        retcode = proc.wait()
-        if retcode != 0:
-            # Fallback if fast seek failed: try safe re-encode with reconnect headers & subtitle suppression
-            cmd_fallback = [
-                "ffmpeg", "-y",
-                "-headers", origin_header,
-                "-user_agent", USER_AGENT,
-                "-reconnect", "1",
-                "-reconnect_at_eof", "1",
-                "-reconnect_streamed", "1",
-                "-reconnect_delay_max", "5",
-                "-rw_timeout", "15000000",
-                "-ss", str(clip_start),
-                "-i", v_url,
-                "-t", str(clip_duration),
-                "-sn",
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
-                "-af", "aresample=async=1000:first_pts=0",
-                "-map", "0:v:0", "-map", "0:a:0?",
-                "-avoid_negative_ts", "make_zero",
-                output_path
-            ]
-            res_fb = subprocess.run(cmd_fallback, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-            if res_fb.returncode != 0:
-                err_msg = (res_fb.stderr or "")[-300:]
-                raise RuntimeError(f"FFmpeg stream capture error: {err_msg}")
+        res_fb = subprocess.run(cmd_fallback, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        if res_fb.returncode != 0:
+            err_msg = (res_fb.stderr or "")[-300:]
+            raise RuntimeError(f"FFmpeg stream capture error: {err_msg}")
 
     if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
         raise RuntimeError("Failed to generate trimmed video file from YouTube stream.")
