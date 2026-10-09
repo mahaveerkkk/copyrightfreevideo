@@ -179,29 +179,91 @@ document.addEventListener("DOMContentLoaded", async () => {
     const hookFileInput = document.getElementById("hookFileInput");
     const btnSelectHookFile = document.getElementById("btnSelectHookFile");
 
-    tabHookYt.addEventListener("click", () => {
-        tabHookYt.classList.add("active");
-        tabHookUpload.classList.remove("active");
-        hookYtBox.style.display = "flex";
-        hookDropZone.style.display = "none";
+    if (tabHookYt && tabHookUpload) {
+        tabHookYt.addEventListener("click", () => {
+            tabHookYt.classList.add("active");
+            tabHookUpload.classList.remove("active");
+            if (hookYtBox) hookYtBox.style.display = "flex";
+            if (hookDropZone) hookDropZone.style.display = "none";
+        });
+
+        tabHookUpload.addEventListener("click", () => {
+            tabHookUpload.classList.add("active");
+            tabHookYt.classList.remove("active");
+            if (hookYtBox) hookYtBox.style.display = "none";
+            if (hookDropZone) hookDropZone.style.display = "block";
+        });
+    }
+
+    if (btnSelectHookFile && hookFileInput) {
+        btnSelectHookFile.addEventListener("click", () => hookFileInput.click());
+        hookFileInput.addEventListener("change", (e) => {
+            if (e.target.files.length > 0) {
+                const f = e.target.files[0];
+                switchMasterStudio("movie");
+                tabUploadMode.click();
+                handleSelectedFile(f);
+            }
+        });
+    }
+
+    // Toggle Gemini Key input
+    const toggleGeminiKeyBtn = document.getElementById("toggleGeminiKeyBtn");
+    const geminiKeyBox = document.getElementById("geminiKeyBox");
+    const geminiApiKeyInput = document.getElementById("geminiApiKeyInput");
+    if (toggleGeminiKeyBtn && geminiKeyBox) {
+        toggleGeminiKeyBtn.addEventListener("click", () => {
+            geminiKeyBox.style.display = geminiKeyBox.style.display === "none" ? "block" : "none";
+        });
+    }
+
+    // Connect Tracked Channels Quick Picks
+    document.querySelectorAll(".channel-chip-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const url = btn.dataset.url;
+            if (url && hookYtUrlInput) {
+                hookYtUrlInput.value = url;
+                btnFindHooks.click();
+            }
+        });
     });
 
-    tabHookUpload.addEventListener("click", () => {
-        tabHookUpload.classList.add("active");
-        tabHookYt.classList.remove("active");
-        hookYtBox.style.display = "none";
-        hookDropZone.style.display = "block";
-    });
-
-    btnSelectHookFile.addEventListener("click", () => hookFileInput.click());
-    hookFileInput.addEventListener("change", (e) => {
-        if (e.target.files.length > 0) {
-            const f = e.target.files[0];
-            switchMasterStudio("movie");
-            tabUploadMode.click();
-            handleSelectedFile(f);
-        }
-    });
+    // Refresh Watchlist Feed dynamically
+    const btnRefreshWatchlist = document.getElementById("btnRefreshWatchlist");
+    if (btnRefreshWatchlist) {
+        btnRefreshWatchlist.addEventListener("click", async () => {
+            btnRefreshWatchlist.innerText = "⏳ Loading...";
+            try {
+                const res = await fetch("/api/channels/watchlist");
+                const data = await res.json();
+                if (data.status === "ok" && data.watchlist) {
+                    const container = document.getElementById("channelQuickPicks");
+                    if (container && data.watchlist.length > 0) {
+                        container.innerHTML = "";
+                        data.watchlist.forEach(ch => {
+                            const firstVid = ch.recent_videos && ch.recent_videos[0];
+                            const chip = document.createElement("button");
+                            chip.type = "button";
+                            chip.className = "channel-chip-btn";
+                            chip.style.cssText = "background: rgba(15,23,42,0.85); border: 1px solid rgba(56,189,248,0.3); color: #f1f5f9; padding: 6px 14px; border-radius: 20px; font-size: 0.76rem; font-weight: 600; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px;";
+                            chip.innerHTML = `<span>🎙️</span> <strong>${ch.channel}</strong> ${firstVid ? `<span style="color:#94a3b8;font-size:0.72rem;">(${firstVid.title.slice(0, 24)}...)</span>` : ""}`;
+                            chip.addEventListener("click", () => {
+                                if (firstVid && firstVid.link) {
+                                    hookYtUrlInput.value = firstVid.link;
+                                    btnFindHooks.click();
+                                }
+                            });
+                            container.appendChild(chip);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn("Failed to refresh watchlist", e);
+            } finally {
+                btnRefreshWatchlist.innerText = "🔄 Refresh";
+            }
+        });
+    }
 
     const tabLofiYt = document.getElementById("tabLofiYt");
     const tabLofiUpload = document.getElementById("tabLofiUpload");
@@ -256,12 +318,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         hookSpinner.style.display = "inline-block";
-        hookBtnText.innerText = "Analyzing Dialogue & Energy...";
+        hookBtnText.innerText = "Gemini Analyzing Dialogue & Virality...";
         btnFindHooks.disabled = true;
 
         try {
             const form = new FormData();
             form.append("url", url);
+            if (geminiApiKeyInput && geminiApiKeyInput.value.trim()) {
+                form.append("api_key", geminiApiKeyInput.value.trim());
+            }
+
             const res = await fetch("/api/youtube/find-hooks", {
                 method: "POST",
                 body: form
@@ -276,23 +342,79 @@ document.addEventListener("DOMContentLoaded", async () => {
             const hooks = data.hooks || [];
 
             hookCardsList.innerHTML = "";
+            if (hooks.length === 0) {
+                hookCardsList.innerHTML = `<div style="color: #94a3b8; font-size: 0.85rem; padding: 12px;">No dialogue hooks found in this video. Ensure the video has spoken audio/subtitles.</div>`;
+            }
+
             hooks.forEach((h, idx) => {
                 const card = document.createElement("div");
                 card.className = "hook-card";
+                card.style.cssText = "background: rgba(15,23,42,0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;";
                 card.innerHTML = `
-                    <div class="hook-info-left">
-                        <div class="hook-card-title">${h.title}</div>
-                        <div class="hook-card-meta">
+                    <div class="hook-info-left" style="flex: 1; min-width: 240px;">
+                        <div class="hook-card-title" style="font-weight: 700; font-size: 0.95rem; color: #f8fafc; margin-bottom: 4px;">${h.title}</div>
+                        ${h.hook_line ? `<div style="font-size: 0.78rem; color: #38bdf8; font-style: italic; margin-bottom: 6px;">"${h.hook_line}"</div>` : ""}
+                        <div class="hook-card-meta" style="display: flex; align-items: center; gap: 10px; font-size: 0.78rem; color: #94a3b8;">
                             <span>⏱️ ${h.start_str} ➔ ${h.end_str} (${h.duration_sec}s)</span>
-                            <span class="hook-score-badge">🔥 Score: ${h.score}%</span>
+                            <span class="hook-score-badge" style="background: rgba(245,158,11,0.2); border: 1px solid #f59e0b; color: #fbbf24; padding: 2px 8px; border-radius: 6px; font-weight: 700;">🔥 Score: ${h.score}%</span>
                         </div>
+                        ${h.reason ? `<div style="font-size: 0.73rem; color: #64748b; margin-top: 4px;">${h.reason}</div>` : ""}
                     </div>
-                    <button type="button" class="btn-use-hook">Use in Movie Shield</button>
+                    <div style="display: flex; flex-direction: column; gap: 8px; min-width: 190px;">
+                        <button type="button" class="btn-render-short" style="background: linear-gradient(135deg, #f59e0b, #ef4444); border: none; color: white; padding: 8px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 14px rgba(245,158,11,0.35);">
+                            <span>🔥</span> <span>Render 9:16 Short</span>
+                        </button>
+                        <button type="button" class="btn-use-hook" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #cbd5e1; padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">
+                            <span>🎬</span> <span>Trim in Movie Shield</span>
+                        </button>
+                    </div>
                 `;
 
-                // When user clicks "Use in Movie Shield", transfer to Studio 1 Trimmer!
+                // 1. Render 9:16 Short directly
+                card.querySelector(".btn-render-short").addEventListener("click", async () => {
+                    const shortBtn = card.querySelector(".btn-render-short");
+                    shortBtn.disabled = true;
+                    shortBtn.innerHTML = `<span>⏳</span> <span>Starting...</span>`;
+
+                    try {
+                        const sForm = new FormData();
+                        sForm.append("url", url);
+                        sForm.append("start_sec", h.start);
+                        sForm.append("end_sec", h.end);
+                        sForm.append("title", h.title);
+                        sForm.append("style", "blurred_stack");
+                        sForm.append("burn_captions", "true");
+                        sForm.append("watermark_text", "@ViralClips");
+
+                        const sRes = await fetch("/api/shorts/generate", {
+                            method: "POST",
+                            body: sForm
+                        });
+
+                        if (!sRes.ok) {
+                            const err = await sRes.json();
+                            throw new Error(err.detail || "Failed to start short generation");
+                        }
+
+                        const sData = await sRes.json();
+                        
+                        // Switch to live processing card
+                        configCard.style.display = "none";
+                        studioHookCard.style.display = "none";
+                        studioLofiCard.style.display = "none";
+                        studioDownloaderCard.style.display = "none";
+                        processingCard.style.display = "block";
+                        pollJobProgress(sData.job_id);
+
+                    } catch (e) {
+                        alert(`Shorts Error: ${e.message}`);
+                        shortBtn.disabled = false;
+                        shortBtn.innerHTML = `<span>🔥</span> <span>Render 9:16 Short</span>`;
+                    }
+                });
+
+                // 2. Transfer to Studio 1 Movie Shield Trimmer
                 card.querySelector(".btn-use-hook").addEventListener("click", () => {
-                    // Lock hook timestamps for fetch callback
                     pendingHookData = {
                         start: h.start,
                         end: h.end,

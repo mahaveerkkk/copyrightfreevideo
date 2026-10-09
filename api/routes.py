@@ -199,17 +199,114 @@ async def fetch_youtube_video_info(url: str = Form(...)):
             )
         raise HTTPException(status_code=400, detail=err_msg)
 
-# 0.1 YouTube: Auto-Find Viral Hooks (Studio 2)
+# 0.1 YouTube & Gemini: Auto-Find Viral Hooks (Studio 2)
 @router.post("/youtube/find-hooks")
-async def api_find_viral_hooks(url: str = Form(...)):
+async def api_find_viral_hooks(
+    url: str = Form(...),
+    api_key: Optional[str] = Form(None)
+):
     if not url or ("youtube.com" not in url and "youtu.be" not in url):
         raise HTTPException(status_code=400, detail="Please enter a valid YouTube URL")
     try:
-        from core.hook_finder import find_viral_hooks
-        hooks = find_viral_hooks(url)
+        from core.gemini_hook_finder import find_gemini_viral_hooks
+        hooks = find_gemini_viral_hooks(url, max_hooks=3, api_key=api_key)
         return {"hooks": hooks, "count": len(hooks)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+# 0.11 Monitored YouTube Channels Watchlist
+@router.get("/channels/watchlist")
+async def api_get_watchlist():
+    try:
+        from core.channel_watcher import get_watchlist_feed
+        watchlist = get_watchlist_feed()
+        return {"status": "ok", "watchlist": watchlist}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 0.12 Render AI 9:16 Viral Short with Animated Captions
+@router.post("/shorts/generate", response_model=JobResponse)
+async def api_generate_short(
+    url: str = Form(...),
+    start_sec: float = Form(...),
+    end_sec: float = Form(...),
+    title: Optional[str] = Form("Viral Short"),
+    style: str = Form("blurred_stack"),
+    burn_captions: bool = Form(True),
+    watermark_text: Optional[str] = Form("@ViralShorts"),
+    authorization: Optional[str] = Header(None),
+    cr_session: Optional[str] = Cookie(None)
+):
+    user = get_current_user_optional(authorization, cr_session)
+    user_id = user["id"] if user else None
+
+    job_id = str(uuid.uuid4())
+    output_path = os.path.join(OUTPUT_DIR, f"short_{job_id}.mp4")
+    filename = f"Short_{title[:24]}.mp4"
+
+    from core.db import db_save_job
+    db_save_job(job_id, user_id, filename, "viral_short_916", "turbo", status="queued")
+
+    JOBS_STORE[job_id] = {
+        "job_id": job_id,
+        "user_id": user_id,
+        "filename": filename,
+        "input_path": url,
+        "output_path": output_path,
+        "preset": "viral_short_916",
+        "mode": "turbo",
+        "status": JobStatus.QUEUED,
+        "progress": 0.0,
+        "message": "Enqueued AI Viral Short generation...",
+        "error": None,
+        "download_url": None,
+        "original_meta": None,
+        "transformed_meta": None,
+        "elapsed_seconds": None
+    }
+
+    def run_short_task():
+        from core.shorts_generator import generate_viral_short
+        try:
+            update_job_status(job_id, 10.0, "Starting AI Shorts synthesis...", JobStatus.PROCESSING)
+            res = generate_viral_short(
+                youtube_url=url,
+                start_sec=float(start_sec),
+                end_sec=float(end_sec),
+                output_path=output_path,
+                style=style,
+                burn_captions=burn_captions,
+                watermark_text=watermark_text,
+                progress_callback=lambda p, m: update_job_status(job_id, p, m, JobStatus.PROCESSING)
+            )
+            update_job_status(
+                job_id=job_id,
+                progress=100.0,
+                message="AI Viral Short (9:16) Ready!",
+                status=JobStatus.COMPLETED,
+                download_url=f"/api/download/{job_id}",
+                transformed_meta=res
+            )
+        except Exception as err:
+            update_job_status(
+                job_id=job_id,
+                progress=0.0,
+                message=f"Short generation error: {str(err)}",
+                status=JobStatus.FAILED,
+                error=str(err)
+            )
+
+    import threading
+    threading.Thread(target=run_short_task, daemon=True).start()
+
+    return JobResponse(
+        job_id=job_id,
+        filename=filename,
+        status=JobStatus.QUEUED,
+        progress=0.0,
+        message="Enqueued AI 9:16 Viral Short rendering...",
+        preset="viral_short_916"
+    )
 
 # 0.2 Music & Lo-Fi Scrambler (Studio 3)
 @router.post("/music/lofi", response_model=JobResponse)
