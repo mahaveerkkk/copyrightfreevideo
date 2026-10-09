@@ -59,8 +59,8 @@ def format_timestamp(seconds: float) -> str:
     return f"{m:02d}:{s:02d}"
 
 def call_gemini_api(prompt: str, api_key: str) -> str:
-    """Invokes Google Gemini 1.5 Flash REST endpoint."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    """Invokes Google Gemini REST endpoint with model fallback."""
+    models_to_try = ["gemini-3.5-flash", "gemini-3.5-flash-lite"]
     payload = {
         "contents": [{
             "parts": [{"text": prompt}]
@@ -70,14 +70,23 @@ def call_gemini_api(prompt: str, api_key: str) -> str:
             "responseMimeType": "application/json"
         }
     }
-    resp = requests.post(url, json=payload, timeout=30)
-    if resp.status_code != 200:
-        raise RuntimeError(f"Gemini API returned error {resp.status_code}: {resp.text}")
-    data = resp.json()
-    candidates = data.get("candidates", [])
-    if not candidates:
-        raise RuntimeError("Gemini returned empty response.")
-    return candidates[0]["content"]["parts"][0]["text"]
+    last_err = None
+    for model in models_to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        try:
+            resp = requests.post(url, json=payload, timeout=30)
+            if resp.status_code == 200:
+                data = resp.json()
+                candidates = data.get("candidates", [])
+                if candidates:
+                    return candidates[0]["content"]["parts"][0]["text"]
+            else:
+                last_err = f"Model {model} error {resp.status_code}: {resp.text}"
+        except Exception as e:
+            last_err = str(e)
+            continue
+
+    raise RuntimeError(f"Gemini API error: {last_err}")
 
 def find_gemini_viral_hooks(youtube_url: str, max_hooks: int = 3, api_key: Optional[str] = None) -> List[Dict[str, Any]]:
     """
