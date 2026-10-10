@@ -164,6 +164,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (studioDownloaderCard) studioDownloaderCard.style.display = target === "downloader" ? "block" : "none";
         if (studioHookCard) studioHookCard.style.display = target === "hook" ? "block" : "none";
         if (studioLofiCard) studioLofiCard.style.display = target === "lofi" ? "block" : "none";
+
+        if (target === "hook") {
+            loadWatchlistFeed(currentVaultMode);
+        }
     }
 
     if (btnStudioMovie) btnStudioMovie.addEventListener("click", () => switchMasterStudio("movie"));
@@ -291,6 +295,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (btnRefreshWatchlist) {
         btnRefreshWatchlist.addEventListener("click", () => loadWatchlistFeed(currentVaultMode));
     }
+    // Preload real video feeds on initial launch
+    loadWatchlistFeed(currentVaultMode);
 
     // Auto-Pilot Autonomous Engine UI Controller
     const autoPilotBadge = document.getElementById("autoPilotBadge");
