@@ -40,6 +40,21 @@ def sanitize_youtube_tags(raw_tags: List[str]) -> List[str]:
 
 def get_authenticated_youtube_service():
     """Authenticates and returns the YouTube Data API v3 service client."""
+    # Check env var for cloud deployments (Railway/Docker)
+    token_env = os.getenv("YOUTUBE_TOKEN_JSON")
+    if token_env:
+        raw_env = token_env.strip()
+        if (raw_env.startswith("'") and raw_env.endswith("'")) or (raw_env.startswith('"') and raw_env.endswith('"')):
+            raw_env = raw_env[1:-1].strip()
+        try:
+            parsed = json.loads(raw_env)
+            os.makedirs(CONFIG_DIR, exist_ok=True)
+            with open(TOKEN_FILE, "w", encoding="utf-8") as f:
+                json.dump(parsed, f, indent=2)
+            logger.info("Synchronized YouTube token from environment variable.")
+        except Exception as e:
+            logger.warning(f"Could not parse YOUTUBE_TOKEN_JSON env var: {e}")
+
     if not os.path.exists(TOKEN_FILE):
         raise FileNotFoundError(f"YouTube token file not found at {TOKEN_FILE}")
 
