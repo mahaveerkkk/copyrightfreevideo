@@ -308,6 +308,30 @@ async def api_generate_short(
         preset="viral_short_916"
     )
 
+# 0.13 Autonomous Auto-Pilot Background Generator
+@router.get("/auto-pilot/status")
+async def api_auto_pilot_status():
+    from core.autonomous_worker import auto_pilot_engine
+    return auto_pilot_engine.get_status()
+
+@router.post("/auto-pilot/toggle")
+async def api_auto_pilot_toggle(enabled: bool = Form(...), interval_hours: float = Form(1.0)):
+    from core.autonomous_worker import auto_pilot_engine
+    if enabled:
+        auto_pilot_engine.start(interval_seconds=int(interval_hours * 3600))
+    else:
+        auto_pilot_engine.stop()
+    return auto_pilot_engine.get_status()
+
+@router.get("/auto-shorts/download/{filename}")
+async def api_download_auto_short(filename: str):
+    from core.autonomous_worker import AUTO_SHORTS_DIR
+    clean_fn = os.path.basename(filename)
+    path = os.path.join(AUTO_SHORTS_DIR, clean_fn)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Short video not found")
+    return FileResponse(path, filename=clean_fn, media_type="video/mp4")
+
 # 0.2 Music & Lo-Fi Scrambler (Studio 3)
 @router.post("/music/lofi", response_model=JobResponse)
 async def api_process_lofi_music(
