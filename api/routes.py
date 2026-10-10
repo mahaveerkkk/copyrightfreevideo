@@ -216,11 +216,11 @@ async def api_find_viral_hooks(
 
 # 0.11 Monitored YouTube Channels Watchlist
 @router.get("/channels/watchlist")
-async def api_get_watchlist():
+async def api_get_watchlist(mode: str = "popular"):
     try:
         from core.channel_watcher import get_watchlist_feed
-        watchlist = get_watchlist_feed()
-        return {"status": "ok", "watchlist": watchlist}
+        watchlist = get_watchlist_feed(mode=mode)
+        return {"status": "ok", "mode": mode, "watchlist": watchlist}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

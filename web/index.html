@@ -400,13 +400,22 @@
                 <p class="banner-sub">Lambi podcast ya interview ka link daalo. Gemini AI automatically top viral moments dhoondhega aur 9:16 portrait shorts me <strong>Alex Hormozi style animated captions</strong> ke sath 1-click me render karega!</p>
             </div>
 
-            <!-- Auto-Watcher Channel Quick Picks -->
+            <!-- Auto-Watcher Channel Quick Picks with Popular vs Latest Toggle -->
             <div class="watchlist-section" style="margin-top: 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 14px;">
-                <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
-                    <span>⚡ Quick-Pick from Tracked Channels (Auto-Watcher):</span>
+                <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span>⚡ Channel Vault:</span>
+                        <div style="display: inline-flex; background: rgba(0,0,0,0.4); border-radius: 16px; padding: 2px;">
+                            <button type="button" id="btnModePopular" class="source-tab active" style="padding: 3px 10px; font-size: 0.72rem; border-radius: 14px; margin: 0;">🔥 All-Time Hit (10M+)</button>
+                            <button type="button" id="btnModeLatest" class="source-tab" style="padding: 3px 10px; font-size: 0.72rem; border-radius: 14px; margin: 0;">🟢 Latest Uploads</button>
+                        </div>
+                    </div>
                     <button type="button" id="btnRefreshWatchlist" style="background: none; border: none; color: #38bdf8; font-size: 0.75rem; cursor: pointer;">🔄 Refresh</button>
                 </div>
                 <div id="channelQuickPicks" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;">
+                    <button type="button" class="channel-chip-btn" data-url="https://www.youtube.com/@MrBeast" style="background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.5); color: #fde047; padding: 6px 12px; border-radius: 20px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px;">
+                        <span>⚡</span> MrBeast (Viral King)
+                    </button>
                     <button type="button" class="channel-chip-btn" data-url="https://www.youtube.com/@RajShamani" style="background: rgba(15,23,42,0.8); border: 1px solid rgba(56,189,248,0.3); color: #f1f5f9; padding: 6px 12px; border-radius: 20px; font-size: 0.76rem; font-weight: 600; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px;">
                         <span>🎙️</span> Raj Shamani
                     </button>

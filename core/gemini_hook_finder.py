@@ -10,6 +10,9 @@ import logging
 from typing import List, Dict, Any, Optional
 import requests
 from urllib.parse import urlparse, parse_qs
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger("GeminiHookFinder")
 
@@ -126,12 +129,14 @@ Required Output JSON Format:
 {{
   "viral_hooks": [
     {{
-      "title": "Viral Hook Title in Hinglish or English (e.g., '90% Log Ye Galti Karte Hain')",
+      "title": "Catchy Viral Title with Emojis (e.g., '90% Log Ye Galti Karte Hain ❌')",
       "start_sec": 120.5,
       "end_sec": 165.0,
-      "virality_score": 95,
+      "virality_score": 96,
       "hook_line": "The opening punchline sentence",
-      "reason": "Why this moment will blow up on Reels/Shorts"
+      "reason": "Why this moment will blow up on Reels/Shorts",
+      "hashtags": "#shorts #viral #trending #motivation #money",
+      "pinned_affiliate_comment": "👉 Recommended book & tool mentioned in this video: [Click Link for Free Bonus!]"
     }}
   ]
 }}
@@ -154,7 +159,9 @@ Required Output JSON Format:
                     "title": h.get("title", "Viral Highlight"),
                     "hook_line": h.get("hook_line", ""),
                     "reason": h.get("reason", "High-retention emotional hook detected by Gemini."),
-                    "score": int(h.get("virality_score", 92))
+                    "score": int(h.get("virality_score", 92)),
+                    "hashtags": h.get("hashtags", "#shorts #viral #trending #podcast"),
+                    "pinned_affiliate_comment": h.get("pinned_affiliate_comment", "👉 Best book & tool from this clip: [Check Pinned Link]")
                 })
             if results:
                 return results
@@ -163,4 +170,10 @@ Required Output JSON Format:
 
     # Fallback heuristic: use hook keywords or golden-ratio chapters
     from core.hook_finder import find_viral_hooks as fallback_finder
-    return fallback_finder(youtube_url, max_hooks=max_hooks)
+    fallback_hooks = fallback_finder(youtube_url, max_hooks=max_hooks)
+    for fh in fallback_hooks:
+        if not fh.get("hashtags"):
+            fh["hashtags"] = "#shorts #viral #trending #podcast #growth"
+        if not fh.get("pinned_affiliate_comment"):
+            fh["pinned_affiliate_comment"] = "👉 Recommended tool & resources mentioned in this video: [Click link in description for free access]"
+    return fallback_hooks

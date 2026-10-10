@@ -228,41 +228,68 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     });
 
-    // Refresh Watchlist Feed dynamically
+    // Popular vs Latest Channel Vault Mode
+    let currentVaultMode = "popular";
+    const btnModePopular = document.getElementById("btnModePopular");
+    const btnModeLatest = document.getElementById("btnModeLatest");
+
+    if (btnModePopular && btnModeLatest) {
+        btnModePopular.addEventListener("click", () => {
+            btnModePopular.classList.add("active");
+            btnModeLatest.classList.remove("active");
+            currentVaultMode = "popular";
+            loadWatchlistFeed("popular");
+        });
+
+        btnModeLatest.addEventListener("click", () => {
+            btnModeLatest.classList.add("active");
+            btnModePopular.classList.remove("active");
+            currentVaultMode = "latest";
+            loadWatchlistFeed("latest");
+        });
+    }
+
+    // Refresh Watchlist Feed dynamically (Popular or Latest)
+    async function loadWatchlistFeed(mode = currentVaultMode) {
+        const btnRef = document.getElementById("btnRefreshWatchlist");
+        if (btnRef) btnRef.innerText = "⏳ Loading...";
+        try {
+            const res = await fetch(`/api/channels/watchlist?mode=${mode}`);
+            const data = await res.json();
+            if (data.status === "ok" && data.watchlist) {
+                const container = document.getElementById("channelQuickPicks");
+                if (container && data.watchlist.length > 0) {
+                    container.innerHTML = "";
+                    data.watchlist.forEach(ch => {
+                        const firstVid = ch.recent_videos && ch.recent_videos[0];
+                        const chip = document.createElement("button");
+                        chip.type = "button";
+                        chip.className = "channel-chip-btn";
+                        const isBeast = ch.handle === "MrBeast" || ch.name.includes("MrBeast");
+                        chip.style.cssText = isBeast 
+                            ? "background: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.6); color: #fde047; padding: 6px 14px; border-radius: 20px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px;"
+                            : "background: rgba(15,23,42,0.85); border: 1px solid rgba(56,189,248,0.3); color: #f1f5f9; padding: 6px 14px; border-radius: 20px; font-size: 0.76rem; font-weight: 600; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px;";
+                        chip.innerHTML = `<span>${isBeast ? "⚡" : "🎙️"}</span> <strong>${ch.channel}</strong> ${firstVid ? `<span style="color:#94a3b8;font-size:0.72rem;">(${firstVid.title.slice(0, 24)}...)</span>` : ""}`;
+                        chip.addEventListener("click", () => {
+                            if (firstVid && firstVid.link) {
+                                hookYtUrlInput.value = firstVid.link;
+                                btnFindHooks.click();
+                            }
+                        });
+                        container.appendChild(chip);
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to refresh watchlist", e);
+        } finally {
+            if (btnRef) btnRef.innerText = "🔄 Refresh";
+        }
+    }
+
     const btnRefreshWatchlist = document.getElementById("btnRefreshWatchlist");
     if (btnRefreshWatchlist) {
-        btnRefreshWatchlist.addEventListener("click", async () => {
-            btnRefreshWatchlist.innerText = "⏳ Loading...";
-            try {
-                const res = await fetch("/api/channels/watchlist");
-                const data = await res.json();
-                if (data.status === "ok" && data.watchlist) {
-                    const container = document.getElementById("channelQuickPicks");
-                    if (container && data.watchlist.length > 0) {
-                        container.innerHTML = "";
-                        data.watchlist.forEach(ch => {
-                            const firstVid = ch.recent_videos && ch.recent_videos[0];
-                            const chip = document.createElement("button");
-                            chip.type = "button";
-                            chip.className = "channel-chip-btn";
-                            chip.style.cssText = "background: rgba(15,23,42,0.85); border: 1px solid rgba(56,189,248,0.3); color: #f1f5f9; padding: 6px 14px; border-radius: 20px; font-size: 0.76rem; font-weight: 600; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px;";
-                            chip.innerHTML = `<span>🎙️</span> <strong>${ch.channel}</strong> ${firstVid ? `<span style="color:#94a3b8;font-size:0.72rem;">(${firstVid.title.slice(0, 24)}...)</span>` : ""}`;
-                            chip.addEventListener("click", () => {
-                                if (firstVid && firstVid.link) {
-                                    hookYtUrlInput.value = firstVid.link;
-                                    btnFindHooks.click();
-                                }
-                            });
-                            container.appendChild(chip);
-                        });
-                    }
-                }
-            } catch (e) {
-                console.warn("Failed to refresh watchlist", e);
-            } finally {
-                btnRefreshWatchlist.innerText = "🔄 Refresh";
-            }
-        });
+        btnRefreshWatchlist.addEventListener("click", () => loadWatchlistFeed(currentVaultMode));
     }
 
     const tabLofiYt = document.getElementById("tabLofiYt");
@@ -351,14 +378,28 @@ document.addEventListener("DOMContentLoaded", async () => {
                 card.className = "hook-card";
                 card.style.cssText = "background: rgba(15,23,42,0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;";
                 card.innerHTML = `
-                    <div class="hook-info-left" style="flex: 1; min-width: 240px;">
+                    <div class="hook-info-left" style="flex: 1; min-width: 260px;">
                         <div class="hook-card-title" style="font-weight: 700; font-size: 0.95rem; color: #f8fafc; margin-bottom: 4px;">${h.title}</div>
                         ${h.hook_line ? `<div style="font-size: 0.78rem; color: #38bdf8; font-style: italic; margin-bottom: 6px;">"${h.hook_line}"</div>` : ""}
-                        <div class="hook-card-meta" style="display: flex; align-items: center; gap: 10px; font-size: 0.78rem; color: #94a3b8;">
+                        <div class="hook-card-meta" style="display: flex; align-items: center; gap: 10px; font-size: 0.78rem; color: #94a3b8; margin-bottom: 8px;">
                             <span>⏱️ ${h.start_str} ➔ ${h.end_str} (${h.duration_sec}s)</span>
                             <span class="hook-score-badge" style="background: rgba(245,158,11,0.2); border: 1px solid #f59e0b; color: #fbbf24; padding: 2px 8px; border-radius: 6px; font-weight: 700;">🔥 Score: ${h.score}%</span>
                         </div>
-                        ${h.reason ? `<div style="font-size: 0.73rem; color: #64748b; margin-top: 4px;">${h.reason}</div>` : ""}
+                        ${h.reason ? `<div style="font-size: 0.73rem; color: #64748b; margin-bottom: 8px;">${h.reason}</div>` : ""}
+                        
+                        <!-- Money & SEO Monetization Pack -->
+                        <div style="background: rgba(15,23,42,0.6); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px; padding: 8px 10px; margin-top: 6px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 0.72rem; font-weight: 700; color: #10b981;">💰 Money & SEO Pack</span>
+                                <button type="button" class="btn-copy-seo" style="background: rgba(16,185,129,0.15); border: 1px solid #10b981; color: #34d399; font-size: 0.68rem; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-weight: 600;">📋 Copy SEO Pack</button>
+                            </div>
+                            <div style="font-size: 0.7rem; color: #cbd5e1; margin-bottom: 2px;">
+                                <strong style="color: #94a3b8;">Tags:</strong> <span style="color: #38bdf8;">${h.hashtags || '#shorts #viral #trending'}</span>
+                            </div>
+                            <div style="font-size: 0.7rem; color: #cbd5e1;">
+                                <strong style="color: #94a3b8;">Pinned Link:</strong> <span style="color: #fbbf24;">${h.pinned_affiliate_comment || '👉 Check link in bio for more!'}</span>
+                            </div>
+                        </div>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 8px; min-width: 190px;">
                         <button type="button" class="btn-render-short" style="background: linear-gradient(135deg, #f59e0b, #ef4444); border: none; color: white; padding: 8px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 14px rgba(245,158,11,0.35);">
@@ -369,6 +410,20 @@ document.addEventListener("DOMContentLoaded", async () => {
                         </button>
                     </div>
                 `;
+
+                // Copy SEO Pack listener
+                const btnCopySeo = card.querySelector(".btn-copy-seo");
+                if (btnCopySeo) {
+                    btnCopySeo.addEventListener("click", () => {
+                        const copyText = `TITLE:\n${h.title}\n\nHASHTAGS:\n${h.hashtags || '#shorts #viral #trending'}\n\nPINNED COMMENT:\n${h.pinned_affiliate_comment || ''}`;
+                        navigator.clipboard.writeText(copyText).then(() => {
+                            btnCopySeo.innerText = "✅ Copied!";
+                            setTimeout(() => { btnCopySeo.innerText = "📋 Copy SEO Pack"; }, 2500);
+                        }).catch(() => {
+                            alert("Copied manually:\n\n" + copyText);
+                        });
+                    });
+                }
 
                 // 1. Render 9:16 Short directly
                 card.querySelector(".btn-render-short").addEventListener("click", async () => {
