@@ -569,13 +569,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                         const sData = await sRes.json();
                         
-                        // Switch to live processing card
+                        // Switch to live progress view
                         configCard.style.display = "none";
                         studioHookCard.style.display = "none";
                         studioLofiCard.style.display = "none";
                         studioDownloaderCard.style.display = "none";
-                        processingCard.style.display = "block";
-                        pollJobProgress(sData.job_id);
+                        progressCard.style.display = "block";
+                        processingView.style.display = "block";
+                        completedView.style.display = "none";
+                        
+                        progressBar.style.width = "5%";
+                        progressPercentLabel.innerText = "5%";
+                        mainStatusText.innerText = "Synthesizing AI 9:16 Short...";
+                        subStatusText.innerText = "Applying Alex Hormozi captions & vertical layout...";
+                        terminalOutput.innerHTML = "";
+                        logTerminal(`[SHORTS] Enqueued: ${h.title}`);
+                        
+                        subscribeJobStream(sData.job_id);
 
                     } catch (e) {
                         alert(`Shorts Error: ${e.message}`);
