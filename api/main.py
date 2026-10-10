@@ -50,8 +50,20 @@ def start_cleaner_background():
 
 @app.on_event("startup")
 def on_startup():
-    t = threading.Thread(target=start_cleaner_background, daemon=True)
-    t.start()
+    # 1. Background storage cleaner
+    t_clean = threading.Thread(target=start_cleaner_background, daemon=True)
+    t_clean.start()
+
+    # 2. Autonomous Auto-Pilot YouTube Publisher (Daily 24/7 Daemon)
+    try:
+        from core.autonomous_worker import auto_pilot_engine
+        # Auto-start if state has enabled=True or AUTOPILOT_AUTO_START=true in env
+        auto_start_env = os.getenv("AUTOPILOT_AUTO_START", "true").lower() in ("true", "1", "yes")
+        if auto_pilot_engine.state.get("auto_pilot_enabled", False) or auto_start_env:
+            print("[AutoPilot] Booting 24/7 Autonomous YouTube Publisher Daemon...")
+            auto_pilot_engine.start(interval_seconds=3600)
+    except Exception as ae:
+        print("[AutoPilot] Startup warning:", ae)
 
 if __name__ == "__main__":
     uvicorn.run("api.main:app", host=HOST, port=PORT, reload=True)
