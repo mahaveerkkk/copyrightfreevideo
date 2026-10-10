@@ -332,6 +332,41 @@ async def api_download_auto_short(filename: str):
         raise HTTPException(status_code=404, detail="Short video not found")
     return FileResponse(path, filename=clean_fn, media_type="video/mp4")
 
+# 0.14 YouTube Direct Channel Status & Upload
+@router.get("/youtube/channel-status")
+async def api_youtube_channel_status():
+    from core.youtube_uploader import get_connected_channel_info
+    return get_connected_channel_info()
+
+@router.post("/youtube/upload-now")
+async def api_youtube_upload_now(
+    video_filename: str = Form(...),
+    title: str = Form(...),
+    hashtags: str = Form("#shorts #viral"),
+    pinned_comment: Optional[str] = Form(None),
+    privacy: str = Form("public")
+):
+    from core.autonomous_worker import AUTO_SHORTS_DIR
+    from core.youtube_uploader import upload_short_to_youtube
+    clean_fn = os.path.basename(video_filename)
+    path = os.path.join(AUTO_SHORTS_DIR, clean_fn)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Video file not found")
+    
+    tags = [t.strip() for t in hashtags.split() if t.strip()]
+    try:
+        res = upload_short_to_youtube(
+            video_path=path,
+            title=title,
+            description="Auto-Published via AI Viral Studio",
+            tags=tags,
+            privacy_status=privacy,
+            pinned_comment=pinned_comment
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # 0.2 Music & Lo-Fi Scrambler (Studio 3)
 @router.post("/music/lofi", response_model=JobResponse)
 async def api_process_lofi_music(

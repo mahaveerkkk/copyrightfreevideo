@@ -11,3 +11,5 @@ storage/temp/*
 !storage/temp/.gitkeep
 storage/*.db
 cookies_runtime.txt
+config/client_secrets*.json
+config/youtube_token*.json

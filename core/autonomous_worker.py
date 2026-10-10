@@ -154,6 +154,7 @@ class AutoPilotWorker:
                     watermark_text="@ViralClips"
                 )
 
+                # 3. Create SEO & Monetization Pack
                 seo_pack = {
                     "short_id": short_id,
                     "source_channel": channel["name"],
@@ -168,6 +169,26 @@ class AutoPilotWorker:
                     "generated_at": int(time.time()),
                     "download_url": f"/api/auto-shorts/download/{short_filename}"
                 }
+
+                # 4. Direct Autonomous YouTube Upload
+                upload_res = None
+                try:
+                    from core.youtube_uploader import upload_short_to_youtube
+                    raw_tags = [t.strip() for t in str(best_hook.get("hashtags", "")).split() if t.strip()]
+                    upload_res = upload_short_to_youtube(
+                        video_path=short_filepath,
+                        title=best_hook.get("title", "Viral Highlight"),
+                        description=f"{best_hook.get('hook_line', '')}\n\nClip from: {target_video.get('title')}",
+                        tags=raw_tags,
+                        privacy_status=self.state.get("youtube_privacy", "public"),
+                        pinned_comment=best_hook.get("pinned_affiliate_comment")
+                    )
+                    seo_pack["youtube_url"] = upload_res.get("video_url")
+                    seo_pack["youtube_id"] = upload_res.get("video_id")
+                    logger.info(f"🚀 Auto-Pilot published directly to YouTube: {upload_res.get('video_url')}")
+                except Exception as ue:
+                    logger.warning(f"YouTube auto-upload failed or skipped: {ue}")
+                    seo_pack["youtube_upload_error"] = str(ue)
 
                 with open(seo_filepath, "w", encoding="utf-8") as f:
                     json.dump(seo_pack, f, indent=2)
