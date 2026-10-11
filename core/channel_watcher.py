@@ -90,12 +90,14 @@ def fetch_channel_popular_videos(handle: str, limit: int = 4) -> List[Dict[str, 
         return _POPULAR_CACHE[handle]
 
     url = f"https://www.youtube.com/@{handle}/videos?view=0&sort=p"
-    opts = {
+    from core.youtube_service import get_base_ydl_opts
+    opts = get_base_ydl_opts()
+    opts.update({
         'extract_flat': True,
         'skip_download': True,
         'quiet': True,
         'playlist_items': f"1-{limit}"
-    }
+    })
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:

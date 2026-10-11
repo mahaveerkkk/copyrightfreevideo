@@ -53,7 +53,41 @@ def fetch_youtube_transcript(video_id: str) -> List[Dict[str, Any]]:
             })
         return results
     except Exception as e:
-        logger.warning(f"youtube-transcript-api failed for {video_id}: {e}")
+        logger.warning(f"youtube-transcript-api failed for {video_id}: {e}. Trying yt-dlp cookie fallback...")
+        try:
+            from core.youtube_service import extract_with_client_fallback
+            url = f"https://www.youtube.com/watch?v={video_id}"
+            info = extract_with_client_fallback(url, download=False, custom_opts={
+                'skip_download': True,
+                'writesubtitles': True,
+                'writeautomaticsub': True,
+                'subtitleslangs': ['hi', 'en']
+            })
+            subs = info.get('subtitles', {}) or info.get('automatic_captions', {})
+            for lang in ['hi', 'en']:
+                if lang in subs:
+                    for fmt in subs[lang]:
+                        if fmt.get('ext') == 'json3' and fmt.get('url'):
+                            resp = requests.get(fmt['url'], timeout=15)
+                            if resp.status_code == 200:
+                                jdata = resp.json()
+                                results = []
+                                for ev in jdata.get('events', []):
+                                    segs = ev.get('segs', [])
+                                    txt = "".join([s.get('utf8', '') for s in segs]).strip()
+                                    if txt and txt != "\n":
+                                        start_ms = float(ev.get('tStartMs', 0))
+                                        dur_ms = float(ev.get('dDurationMs', 2000))
+                                        results.append({
+                                            "text": txt.replace("\n", " "),
+                                            "start": start_ms / 1000.0,
+                                            "duration": dur_ms / 1000.0
+                                        })
+                                if results:
+                                    logger.info(f"Extracted {len(results)} transcript segments via yt-dlp cookies!")
+                                    return results
+        except Exception as fb_err:
+            logger.warning(f"yt-dlp subtitle fallback also failed: {fb_err}")
         return []
 
 def format_timestamp(seconds: float) -> str:

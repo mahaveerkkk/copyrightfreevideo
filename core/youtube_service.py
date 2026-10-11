@@ -50,16 +50,16 @@ def extract_with_client_fallback(url: str, download: bool = False, custom_opts: 
     node_bin = shutil.which('node') or ('/home/veer/.nvm/versions/node/v24.16.0/bin/node' if os.path.exists('/home/veer/.nvm/versions/node/v24.16.0/bin/node') else None)
 
     client_strategies = [
-        # Strategy 1: Android + Web combo (most reliable on Cloud/Railway datacenter IPs)
+        # Strategy 1: Standard Web + Cookies (197+ formats, bypasses Datacenter Bot block)
+        ({}, True),
+        # Strategy 2: Web + TV + MWeb with cookies
+        ({'extractor_args': {'youtube': {'player_client': ['web', 'tv', 'mweb']}}}, True),
+        # Strategy 3: Android + Web combo (cookie-less fallback)
         ({'extractor_args': {'youtube': {'player_client': ['android', 'web']}}}, False),
-        # Strategy 2: iOS / MWeb
+        # Strategy 4: iOS / MWeb (cookie-less fallback)
         ({'extractor_args': {'youtube': {'player_client': ['ios', 'mweb']}}}, False),
-        # Strategy 3: TV Embedded / VisionOS (fallback)
-        ({'extractor_args': {'youtube': {'player_client': ['visionos', 'tv']}}}, False),
-        # Strategy 4: Web Creator & MWeb with cookies if available
-        ({'extractor_args': {'youtube': {'player_client': ['web_creator', 'mweb']}}}, True),
-        # Strategy 5: Standard default
-        ({}, False)
+        # Strategy 5: VisionOS / TV
+        ({'extractor_args': {'youtube': {'player_client': ['visionos', 'tv']}}}, False)
     ]
 
     last_err = None
