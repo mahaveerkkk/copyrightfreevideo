@@ -198,6 +198,8 @@ class AutoPilotWorker:
                 self._save_state()
 
                 logger.info(f"✅ Successfully auto-generated short: {short_filename}")
+                # Successfully produced a short for this cycle; yield until next schedule interval
+                break
 
             except Exception as e:
                 logger.error(f"Failed to auto-process video {vid_id}: {e}")
