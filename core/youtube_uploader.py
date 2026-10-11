@@ -96,7 +96,8 @@ def upload_short_to_youtube(
     tags: List[str],
     privacy_status: str = "public",
     pinned_comment: Optional[str] = None,
-    schedule_delay_minutes: Optional[int] = 20
+    schedule_delay_minutes: Optional[int] = None,
+    publish_at_iso: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Uploads a short to YouTube, applies tags & description, and posts a pinned comment.
@@ -118,8 +119,12 @@ def upload_short_to_youtube(
         "selfDeclaredMadeForKids": False
     }
 
-    # If scheduling requested (e.g. 20 minutes after upload)
-    if schedule_delay_minutes and schedule_delay_minutes > 0:
+    # If exact ISO timestamp or relative scheduling requested
+    if publish_at_iso:
+        status_dict["privacyStatus"] = "private"
+        status_dict["publishAt"] = publish_at_iso
+        logger.info(f"Video scheduled to go PUBLIC at exact target time: {publish_at_iso}")
+    elif schedule_delay_minutes and schedule_delay_minutes > 0:
         # YouTube requires scheduled videos to have privacyStatus="private" + publishAt (ISO 8601 UTC)
         publish_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=schedule_delay_minutes)
         publish_at_str = publish_time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
