@@ -63,7 +63,14 @@ def format_timestamp(seconds: float) -> str:
 
 def call_gemini_api(prompt: str, api_key: str) -> str:
     """Invokes Google Gemini REST endpoint with model fallback."""
-    models_to_try = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-pro", "gemini-2.0-flash-exp"]
+    models_to_try = [
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-3.8-flash",
+        "gemini-3.5-flash",
+        "gemini-3.7-flash",
+        "gemini-flash-latest"
+    ]
     payload = {
         "contents": [{
             "parts": [{"text": prompt}]
