@@ -95,11 +95,14 @@ def upload_short_to_youtube(
     description: str,
     tags: List[str],
     privacy_status: str = "public",
-    pinned_comment: Optional[str] = None
+    pinned_comment: Optional[str] = None,
+    schedule_delay_minutes: Optional[int] = 20
 ) -> Dict[str, Any]:
     """
     Uploads a short to YouTube, applies tags & description, and posts a pinned comment.
+    Supports smart scheduling (e.g. 20 minutes delay before becoming Public).
     """
+    import datetime
     yt = get_authenticated_youtube_service()
 
     # Ensure title has #shorts
@@ -111,6 +114,21 @@ def upload_short_to_youtube(
     tag_words = " ".join([f"#{t.replace(' ', '')}" for t in tags[:8] if not t.startswith("#")])
     final_desc = f"{description}\n\n{tag_words}\n\n⚡ Subscribe for daily viral wisdom & highlights!".strip()
 
+    status_dict = {
+        "selfDeclaredMadeForKids": False
+    }
+
+    # If scheduling requested (e.g. 20 minutes after upload)
+    if schedule_delay_minutes and schedule_delay_minutes > 0:
+        # YouTube requires scheduled videos to have privacyStatus="private" + publishAt (ISO 8601 UTC)
+        publish_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=schedule_delay_minutes)
+        publish_at_str = publish_time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        status_dict["privacyStatus"] = "private"
+        status_dict["publishAt"] = publish_at_str
+        logger.info(f"Video scheduled to go PUBLIC at: {publish_at_str} (+{schedule_delay_minutes} mins)")
+    else:
+        status_dict["privacyStatus"] = privacy_status
+
     body = {
         "snippet": {
             "title": final_title[:100],
@@ -118,16 +136,14 @@ def upload_short_to_youtube(
             "tags": sanitize_youtube_tags(tags),
             "categoryId": "24"  # Entertainment
         },
-        "status": {
-            "privacyStatus": privacy_status,
-            "selfDeclaredMadeForKids": False
-        }
+        "status": status_dict
     }
 
     media = MediaFileUpload(video_path, chunksize=5 * 1024 * 1024, resumable=True, mimetype="video/mp4")
     request = yt.videos().insert(part="snippet,status", body=body, media_body=media)
 
-    logger.info(f"Uploading '{os.path.basename(video_path)}' to YouTube ({privacy_status})...")
+    log_status = f"Scheduled for {schedule_delay_minutes}m later" if schedule_delay_minutes else privacy_status
+    logger.info(f"Uploading '{os.path.basename(video_path)}' to YouTube ({log_status})...")
     response = None
     while response is None:
         status, response = request.next_chunk()

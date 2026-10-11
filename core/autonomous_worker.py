@@ -180,8 +180,9 @@ class AutoPilotWorker:
                         title=best_hook.get("title", "Viral Highlight"),
                         description=f"{best_hook.get('hook_line', '')}\n\nClip from: {target_video.get('title')}",
                         tags=raw_tags,
-                        privacy_status=self.state.get("youtube_privacy", "public"),
-                        pinned_comment=best_hook.get("pinned_affiliate_comment")
+                        privacy_status=self.state.get("youtube_privacy", "private"),
+                        pinned_comment=best_hook.get("pinned_affiliate_comment"),
+                        schedule_delay_minutes=20
                     )
                     seo_pack["youtube_url"] = upload_res.get("video_url")
                     seo_pack["youtube_id"] = upload_res.get("video_id")
