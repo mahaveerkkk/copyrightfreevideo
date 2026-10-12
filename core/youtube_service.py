@@ -50,14 +50,14 @@ def extract_with_client_fallback(url: str, download: bool = False, custom_opts: 
     node_bin = shutil.which('node') or ('/home/veer/.nvm/versions/node/v24.16.0/bin/node' if os.path.exists('/home/veer/.nvm/versions/node/v24.16.0/bin/node') else None)
 
     client_strategies = [
-        # Strategy 1: Standard Web + Cookies + Node.js JS Runtime (Yields HTTP 206 playable streams without 403)
-        ({}, True),
-        # Strategy 2: Web + MWeb with Cookies
+        # Strategy 1: Standard Web + MWeb with BotGuard PO-Token (No cookies needed, bypasses Datacenter IP bot check)
+        ({'extractor_args': {'youtube': {'player_client': ['web', 'mweb']}, 'youtubepot-bgutilhttp': {'base_url': ['http://127.0.0.1:4416']}}}, False),
+        # Strategy 2: Standard Web + Cookies + BotGuard PO-Token
+        ({'extractor_args': {'youtubepot-bgutilhttp': {'base_url': ['http://127.0.0.1:4416']}}}, True),
+        # Strategy 3: Web + MWeb with Cookies
         ({'extractor_args': {'youtube': {'player_client': ['web', 'mweb']}}}, True),
-        # Strategy 3: Android + Web combo (cookie-less fallback)
+        # Strategy 4: Android + Web combo (cookie-less fallback)
         ({'extractor_args': {'youtube': {'player_client': ['android', 'web']}}}, False),
-        # Strategy 4: TV Embedded + Web with Cookies
-        ({'extractor_args': {'youtube': {'player_client': ['tv_embedded', 'web']}}}, True),
         # Strategy 5: Android VR fallback
         ({'extractor_args': {'youtube': {'player_client': ['android_vr']}}}, False)
     ]
