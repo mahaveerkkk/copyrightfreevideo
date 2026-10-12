@@ -50,16 +50,16 @@ def extract_with_client_fallback(url: str, download: bool = False, custom_opts: 
     node_bin = shutil.which('node') or ('/home/veer/.nvm/versions/node/v24.16.0/bin/node' if os.path.exists('/home/veer/.nvm/versions/node/v24.16.0/bin/node') else None)
 
     client_strategies = [
-        # Strategy 1: TV Embedded + Android VR (100% immune to Datacenter Bot Blocks, 32+ HD formats without cookies!)
-        ({'extractor_args': {'youtube': {'player_client': ['tv_embedded', 'android_vr']}}}, False),
-        # Strategy 2: TV Embedded + Web with Cookies
-        ({'extractor_args': {'youtube': {'player_client': ['tv_embedded', 'web']}}}, True),
-        # Strategy 3: Pure Android VR (bypasses sign-in check on cloud servers)
-        ({'extractor_args': {'youtube': {'player_client': ['android_vr']}}}, False),
-        # Strategy 4: Standard Web with Cookies
+        # Strategy 1: Standard Web + Cookies + Node.js JS Runtime (Yields HTTP 206 playable streams without 403)
         ({}, True),
-        # Strategy 5: Android + Web combo
-        ({'extractor_args': {'youtube': {'player_client': ['android', 'web']}}}, False)
+        # Strategy 2: Web + MWeb with Cookies
+        ({'extractor_args': {'youtube': {'player_client': ['web', 'mweb']}}}, True),
+        # Strategy 3: Android + Web combo (cookie-less fallback)
+        ({'extractor_args': {'youtube': {'player_client': ['android', 'web']}}}, False),
+        # Strategy 4: TV Embedded + Web with Cookies
+        ({'extractor_args': {'youtube': {'player_client': ['tv_embedded', 'web']}}}, True),
+        # Strategy 5: Android VR fallback
+        ({'extractor_args': {'youtube': {'player_client': ['android_vr']}}}, False)
     ]
 
     last_err = None
@@ -387,21 +387,24 @@ def download_and_trim_youtube(
         # Check if stream has separate video and audio URLs
         v_url = None
         a_url = None
+        ytdlp_ua = None
 
         if 'requested_formats' in info and len(info['requested_formats']) >= 2:
             v_url = info['requested_formats'][0].get('url')
             a_url = info['requested_formats'][1].get('url')
+            ytdlp_ua = info['requested_formats'][0].get('http_headers', {}).get('User-Agent')
         elif 'url' in info:
             v_url = info.get('url')
             a_url = None
+            ytdlp_ua = info.get('http_headers', {}).get('User-Agent')
 
         if not v_url:
             raise RuntimeError("Could not resolve streaming URL from YouTube.")
 
-    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    USER_AGENT = ytdlp_ua if (not is_direct and ytdlp_ua) else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     from urllib.parse import urlparse
     parsed_v = urlparse(v_url)
-    origin_header = f"Referer: {parsed_v.scheme}://{parsed_v.netloc}/\r\n"
+    origin_header = "Referer: https://www.youtube.com/\r\nOrigin: https://www.youtube.com\r\n" if not is_direct else f"Referer: {parsed_v.scheme}://{parsed_v.netloc}/\r\n"
     if "gofile.io" in v_url.lower():
         tok = get_gofile_token()
         if tok:
@@ -513,8 +516,30 @@ def download_and_trim_youtube(
         ]
         res_fb = subprocess.run(cmd_fallback, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         if res_fb.returncode != 0:
-            err_msg = (res_fb.stderr or "")[-300:]
-            raise RuntimeError(f"FFmpeg stream capture error: {err_msg}")
+            # Ultimate Fallback: yt-dlp native downloader with download_ranges (handles chunked DASH & cookies natively)
+            if not is_direct and yt_dlp is not None:
+                try:
+                    from yt_dlp.utils import download_range_func
+                    import shutil
+                    node_bin = shutil.which('node') or ('/home/veer/.nvm/versions/node/v24.16.0/bin/node' if os.path.exists('/home/veer/.nvm/versions/node/v24.16.0/bin/node') else None)
+                    dl_opts = get_base_ydl_opts()
+                    dl_opts.update({
+                        'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best',
+                        'outtmpl': output_path,
+                        'download_ranges': download_range_func(None, [(clip_start, clip_start + clip_duration)]),
+                        'merge_output_format': 'mp4',
+                        'overwrites': True
+                    })
+                    if node_bin:
+                        dl_opts['js_runtimes'] = {'node': {'path': node_bin}}
+                    with yt_dlp.YoutubeDL(dl_opts) as ydl:
+                        ydl.download([url])
+                except Exception as ydl_err:
+                    err_msg = (res_fb.stderr or "")[-300:]
+                    raise RuntimeError(f"FFmpeg stream capture error: {err_msg} | yt-dlp fallback: {ydl_err}")
+            else:
+                err_msg = (res_fb.stderr or "")[-300:]
+                raise RuntimeError(f"FFmpeg stream capture error: {err_msg}")
 
     if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
         raise RuntimeError("Failed to generate trimmed video file from YouTube stream.")

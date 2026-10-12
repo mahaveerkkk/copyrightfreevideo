@@ -63,7 +63,8 @@ class AutoPilotWorker:
             "total_processed_source_videos": len(self.state.get("processed_video_ids", [])),
             "total_shorts_generated": len(self.state.get("generated_shorts_history", [])),
             "recent_generated_shorts": self.state.get("generated_shorts_history", [])[-10:],
-            "selected_channels": self.state.get("selected_channels", [])
+            "selected_channels": self.state.get("selected_channels", []),
+            "last_error": self.state.get("last_error")
         }
 
     def start(self, interval_seconds: int = 3600):
@@ -275,7 +276,7 @@ class AutoPilotWorker:
 
             except Exception as e:
                 logger.error(f"Failed to auto-process video {vid_id}: {e}")
-                self.state["processed_video_ids"].append(vid_id)
+                self.state["last_error"] = f"{vid_id}: {str(e)[:300]}"
                 self._save_state()
 
             time.sleep(15)
