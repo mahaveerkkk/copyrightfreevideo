@@ -16,51 +16,92 @@ except ImportError:
 
 COOKIES_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cookies.txt')
 
+def get_cookie_file() -> Optional[str]:
+    """Resolves YouTube cookies from env vars (raw or base64) or local file."""
+    # 1. Base64 encoded cookies (safest for Railway / Docker multiline env vars)
+    b64_env = os.environ.get('YOUTUBE_COOKIES_B64')
+    if b64_env:
+        import base64
+        try:
+            decoded = base64.b64decode(b64_env.strip()).decode('utf-8', errors='ignore')
+            c_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies_runtime.txt')
+            with open(c_path, 'w', encoding='utf-8') as f:
+                f.write(decoded)
+            return c_path
+        except Exception:
+            pass
+
+    # 2. Raw multiline cookies env var
+    cookies_env = os.environ.get('YOUTUBE_COOKIES')
+    if cookies_env and len(cookies_env.strip()) > 10:
+        c_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies_runtime.txt')
+        with open(c_path, 'w', encoding='utf-8') as f:
+            f.write(cookies_env.strip())
+        return c_path
+
+    # 3. Local cookies.txt file
+    if os.path.exists(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 0:
+        return COOKIES_FILE
+
+    return None
+
+def get_proxy_url() -> Optional[str]:
+    """Returns proxy URL if configured in environment."""
+    return os.environ.get('YTDLP_PROXY') or os.environ.get('HTTPS_PROXY') or os.environ.get('HTTP_PROXY')
+
 def get_base_ydl_opts() -> dict:
-    """Returns base yt-dlp configuration with bot-detection bypass."""
+    """Returns base yt-dlp configuration with bot-detection bypass, cookies, and proxy."""
     opts = {
         'quiet': True,
         'no_warnings': True,
         'socket_timeout': 30,
     }
     
-    # Cookie support if present
-    cookies_env = os.environ.get('YOUTUBE_COOKIES')
-    if cookies_env:
-        c_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies_runtime.txt')
-        with open(c_path, 'w', encoding='utf-8') as f:
-            f.write(cookies_env)
-        opts['cookiefile'] = c_path
-    elif os.path.exists(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 0:
-        opts['cookiefile'] = COOKIES_FILE
+    cookie_file = get_cookie_file()
+    if cookie_file:
+        opts['cookiefile'] = cookie_file
+
+    proxy = get_proxy_url()
+    if proxy:
+        opts['proxy'] = proxy
 
     return opts
 
 def extract_with_client_fallback(url: str, download: bool = False, custom_opts: Optional[dict] = None) -> dict:
     """
     Extracts video metadata or direct streaming URLs using multi-tier client fallback.
-    Prevents 'The page needs to be reloaded' and 'Sign in to confirm you are not a bot' blocks.
-    Tier 1: Android + Web player client (clean, bypasses JS challenges & bot verification)
-    Tier 2: Pure Android client (no cookies, direct CDN playback formats)
-    Tier 3: VisionOS / TV client (cookie-less fallback)
-    Tier 4: Web Creator & MWeb with cookies (for restricted private videos)
-    Tier 5: Standard fallback
+    If cookies are available, authenticates automatically to bypass bot challenges.
     """
     import shutil
     node_bin = shutil.which('node') or ('/home/veer/.nvm/versions/node/v24.16.0/bin/node' if os.path.exists('/home/veer/.nvm/versions/node/v24.16.0/bin/node') else None)
 
-    client_strategies = [
-        # Strategy 1: Standard Web + MWeb with BotGuard PO-Token (No cookies needed, bypasses Datacenter IP bot check)
-        ({'extractor_args': {'youtube': {'player_client': ['web', 'mweb']}, 'youtubepot-bgutilhttp': {'base_url': ['http://127.0.0.1:4416']}}}, False),
-        # Strategy 2: Standard Web + Cookies + BotGuard PO-Token
-        ({'extractor_args': {'youtubepot-bgutilhttp': {'base_url': ['http://127.0.0.1:4416']}}}, True),
-        # Strategy 3: Web + MWeb with Cookies
-        ({'extractor_args': {'youtube': {'player_client': ['web', 'mweb']}}}, True),
-        # Strategy 4: Android + Web combo (cookie-less fallback)
-        ({'extractor_args': {'youtube': {'player_client': ['android', 'web']}}}, False),
-        # Strategy 5: Android VR fallback
-        ({'extractor_args': {'youtube': {'player_client': ['android_vr']}}}, False)
-    ]
+    cookie_file = get_cookie_file()
+    has_cookies = cookie_file is not None
+
+    if has_cookies:
+        # If user provided authenticated cookies, prioritize them at Tier 1
+        client_strategies = [
+            # Tier 1: Web + MWeb with User Cookies + BotGuard PO-Token
+            ({'extractor_args': {'youtube': {'player_client': ['web', 'mweb']}, 'youtubepot-bgutilhttp': {'base_url': ['http://127.0.0.1:4416']}}}, True),
+            # Tier 2: Pure Web with User Cookies
+            ({'extractor_args': {'youtube': {'player_client': ['web']}}}, True),
+            # Tier 3: Android + Web combo with User Cookies
+            ({'extractor_args': {'youtube': {'player_client': ['android', 'web']}}}, True),
+            # Tier 4: Android VR fallback without cookies
+            ({'extractor_args': {'youtube': {'player_client': ['android_vr']}}}, False),
+        ]
+    else:
+        # No cookies yet: try PO-Token and Android clients
+        client_strategies = [
+            # Tier 1: Standard Web + MWeb with BotGuard PO-Token
+            ({'extractor_args': {'youtube': {'player_client': ['web', 'mweb']}, 'youtubepot-bgutilhttp': {'base_url': ['http://127.0.0.1:4416']}}}, False),
+            # Tier 2: Android + Web combo
+            ({'extractor_args': {'youtube': {'player_client': ['android', 'web']}}}, False),
+            # Tier 3: VisionOS / TV client
+            ({'extractor_args': {'youtube': {'player_client': ['visionos', 'tv']}}}, False),
+            # Tier 4: Android VR
+            ({'extractor_args': {'youtube': {'player_client': ['android_vr']}}}, False)
+        ]
 
     last_err = None
     for strat, use_cookies in client_strategies:
@@ -72,10 +113,12 @@ def extract_with_client_fallback(url: str, download: bool = False, custom_opts: 
         if node_bin:
             opts['js_runtimes'] = {'node': {'path': node_bin}}
 
-        if use_cookies:
-            base_cookie_opts = get_base_ydl_opts()
-            if 'cookiefile' in base_cookie_opts:
-                opts['cookiefile'] = base_cookie_opts['cookiefile']
+        proxy = get_proxy_url()
+        if proxy:
+            opts['proxy'] = proxy
+
+        if use_cookies and cookie_file:
+            opts['cookiefile'] = cookie_file
 
         opts.update(strat)
         if custom_opts:
@@ -670,13 +713,12 @@ def download_media_file(url: str, quality: str, output_path: str) -> str:
     import shutil
     node_bin = shutil.which('node') or ('/home/veer/.nvm/versions/node/v24.16.0/bin/node' if os.path.exists('/home/veer/.nvm/versions/node/v24.16.0/bin/node') else None)
 
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
+    ydl_opts = get_base_ydl_opts()
+    ydl_opts.update({
         'outtmpl': output_path,
         'socket_timeout': 45,
-        'extractor_args': {'youtube': {'player_client': ['visionos', 'tv', 'android', 'web']}}
-    }
+        'extractor_args': {'youtube': {'player_client': ['web', 'mweb', 'android']}}
+    })
     if node_bin:
         ydl_opts['js_runtimes'] = {'node': {'path': node_bin}}
 
