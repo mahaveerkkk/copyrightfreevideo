@@ -13,3 +13,4 @@ storage/*.db
 cookies_runtime.txt
 config/client_secrets*.json
 config/youtube_token*.json
+core/cookie_b64.txt
