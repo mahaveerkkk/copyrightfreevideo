@@ -39,7 +39,12 @@ def get_cookie_file() -> Optional[str]:
             f.write(cookies_env.strip())
         return c_path
 
-    # 3. Local cookies.txt file
+    # 3. Runtime cookies file (e.g. created locally or by app)
+    runtime_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies_runtime.txt')
+    if os.path.exists(runtime_path) and os.path.getsize(runtime_path) > 10:
+        return runtime_path
+
+    # 4. Local cookies.txt file
     if os.path.exists(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 0:
         return COOKIES_FILE
 
