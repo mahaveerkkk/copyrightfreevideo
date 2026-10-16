@@ -67,9 +67,9 @@ def get_proxy_url() -> Optional[str]:
     if env_proxy:
         return env_proxy
 
-    # Auto-detect local Cloudflare WARP daemon (port 40000 SOCKS5, 40001 HTTP)
+    # Auto-detect local Cloudflare WARP daemon (port 40001 HTTP CONNECT, port 40000 SOCKS5H)
     import socket
-    for port, scheme in [(40000, "socks5"), (40001, "http")]:
+    for port, scheme in [(40001, "http"), (40000, "socks5h")]:
         try:
             with socket.create_connection(('127.0.0.1', port), timeout=0.2):
                 return f"{scheme}://127.0.0.1:{port}"
