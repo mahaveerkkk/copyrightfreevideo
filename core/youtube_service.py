@@ -9,6 +9,10 @@ import os
 import re
 import subprocess
 from typing import Dict, Any, Optional, List
+from dotenv import load_dotenv
+
+load_dotenv()
+
 try:
     import yt_dlp
 except ImportError:
@@ -18,33 +22,40 @@ COOKIES_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 
 def get_cookie_file() -> Optional[str]:
     """Resolves YouTube cookies from env vars (raw or base64) or local file."""
+    c_tmp_path = "/tmp/cookies_runtime.txt"
+
     # 1. Base64 encoded cookies (safest for Railway / Docker multiline env vars)
     b64_env = os.environ.get('YOUTUBE_COOKIES_B64')
     if b64_env:
         import base64
         try:
             decoded = base64.b64decode(b64_env.strip()).decode('utf-8', errors='ignore')
-            c_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies_runtime.txt')
-            with open(c_path, 'w', encoding='utf-8') as f:
+            with open(c_tmp_path, 'w', encoding='utf-8') as f:
                 f.write(decoded)
-            return c_path
+            return c_tmp_path
         except Exception:
             pass
 
     # 2. Raw multiline cookies env var
     cookies_env = os.environ.get('YOUTUBE_COOKIES')
     if cookies_env and len(cookies_env.strip()) > 10:
-        c_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies_runtime.txt')
-        with open(c_path, 'w', encoding='utf-8') as f:
-            f.write(cookies_env.strip())
-        return c_path
+        try:
+            with open(c_tmp_path, 'w', encoding='utf-8') as f:
+                f.write(cookies_env.strip())
+            return c_tmp_path
+        except Exception:
+            pass
 
-    # 3. Runtime cookies file (e.g. created locally or by app)
+    # 3. /tmp/cookies_runtime.txt if already populated
+    if os.path.exists(c_tmp_path) and os.path.getsize(c_tmp_path) > 10:
+        return c_tmp_path
+
+    # 4. Local runtime cookies file (core/cookies_runtime.txt)
     runtime_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies_runtime.txt')
     if os.path.exists(runtime_path) and os.path.getsize(runtime_path) > 10:
         return runtime_path
 
-    # 4. Local cookies.txt file
+    # 5. Local cookies.txt file
     if os.path.exists(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 0:
         return COOKIES_FILE
 

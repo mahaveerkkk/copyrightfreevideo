@@ -88,8 +88,18 @@ def generate_viral_short(
         # Optional channel branding watermark
         if watermark_text:
             clean_tag = str(watermark_text).replace("'", "").replace(":", "")
+            font_arg = ""
+            for font_cand in [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/dejavu/DejaVuSans.ttf"
+            ]:
+                if os.path.exists(font_cand):
+                    font_arg = f":fontfile='{font_cand}'"
+                    break
+
             filter_steps.append(
-                f"[{current_pad}]drawtext=text='{clean_tag}':x=(w-tw)/2:y=240:fontsize=38:fontcolor=white@0.75:shadowcolor=black@0.6:shadowx=2:shadowy=2[v_final]"
+                f"[{current_pad}]drawtext=text='{clean_tag}'{font_arg}:x=(w-tw)/2:y=240:fontsize=38:fontcolor=white@0.75:shadowcolor=black@0.6:shadowx=2:shadowy=2[v_final]"
             )
             current_pad = "v_final"
 
@@ -115,7 +125,8 @@ def generate_viral_short(
 
         res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         if res.returncode != 0:
-            err = res.stderr[-400:] if res.stderr else "FFmpeg vertical render failed"
+            err_lines = [l for l in (res.stderr or "").splitlines() if not l.strip().startswith("frame=") and not l.strip().startswith("size=")]
+            err = "\n".join(err_lines[-10:]) if err_lines else (res.stderr[-400:] if res.stderr else "FFmpeg vertical render failed")
             raise RuntimeError(f"Shorts composition error: {err}")
 
         if progress_callback:

@@ -825,8 +825,22 @@ async def get_job_thumbnail(job_id: str, idx: int):
 async def health_check():
     import shutil
     total, used, free = shutil.disk_usage(OUTPUT_DIR)
+    
+    from core.youtube_service import get_cookie_file
+    c_file = get_cookie_file()
+    c_size = os.path.getsize(c_file) if (c_file and os.path.exists(c_file)) else 0
+    has_b64 = "YOUTUBE_COOKIES_B64" in os.environ
+    has_raw = "YOUTUBE_COOKIES" in os.environ
+
     return {
         "status": "healthy",
+        "cookies": {
+            "loaded": c_file is not None,
+            "file": c_file,
+            "size_bytes": c_size,
+            "has_b64_env": has_b64,
+            "has_raw_env": has_raw
+        },
         "active_jobs": len([j for j in JOBS_STORE.values() if str(j.get("status")) in ["processing", "JobStatus.PROCESSING"]]),
         "storage": {
             "free_gb": round(free / (1024**3), 2),
