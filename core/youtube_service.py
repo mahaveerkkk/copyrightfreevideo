@@ -62,8 +62,21 @@ def get_cookie_file() -> Optional[str]:
     return None
 
 def get_proxy_url() -> Optional[str]:
-    """Returns proxy URL if configured in environment."""
-    return os.environ.get('YTDLP_PROXY') or os.environ.get('HTTPS_PROXY') or os.environ.get('HTTP_PROXY')
+    """Returns proxy URL if configured in environment or auto-detected Cloudflare WARP tunnel."""
+    env_proxy = os.environ.get('YTDLP_PROXY') or os.environ.get('HTTPS_PROXY') or os.environ.get('HTTP_PROXY')
+    if env_proxy:
+        return env_proxy
+
+    # Auto-detect local Cloudflare WARP daemon (port 40000 SOCKS5, 40001 HTTP)
+    import socket
+    for port, scheme in [(40000, "socks5"), (40001, "http")]:
+        try:
+            with socket.create_connection(('127.0.0.1', port), timeout=0.2):
+                return f"{scheme}://127.0.0.1:{port}"
+        except Exception:
+            pass
+
+    return None
 
 def get_base_ydl_opts() -> dict:
     """Returns base yt-dlp configuration with bot-detection bypass, cookies, and proxy."""

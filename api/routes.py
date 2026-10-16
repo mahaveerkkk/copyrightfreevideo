@@ -826,14 +826,19 @@ async def health_check():
     import shutil
     total, used, free = shutil.disk_usage(OUTPUT_DIR)
     
-    from core.youtube_service import get_cookie_file
+    from core.youtube_service import get_cookie_file, get_proxy_url
     c_file = get_cookie_file()
     c_size = os.path.getsize(c_file) if (c_file and os.path.exists(c_file)) else 0
     has_b64 = "YOUTUBE_COOKIES_B64" in os.environ
     has_raw = "YOUTUBE_COOKIES" in os.environ
+    proxy_url = get_proxy_url()
 
     return {
         "status": "healthy",
+        "warp_proxy": {
+            "active": proxy_url is not None,
+            "url": proxy_url
+        },
         "cookies": {
             "loaded": c_file is not None,
             "file": c_file,
